@@ -86,25 +86,67 @@ open http://localhost:8000/docs
 
 ## Key Backend Components
 
+### Architecture Overview
+
+The backend follows a modular router-based architecture:
+
+```
+backend/
+├── main.py              # App setup, lifespan, router mounting (~177 lines)
+├── config.py            # Multi-root configuration
+├── database.py          # SQLAlchemy ORM models
+├── routers/             # 15 FastAPI APIRouter modules
+│   ├── videos.py        # Video CRUD, streaming, metadata
+│   ├── thumbnails.py    # Thumbnail generation/retrieval
+│   ├── faces.py         # Face recognition (~30 endpoints)
+│   ├── fingerprints.py  # Duplicate detection
+│   ├── tags.py          # Tag management
+│   ├── actors.py        # Actor catalog
+│   ├── scan.py          # Filesystem scanning
+│   ├── search.py        # Video search
+│   ├── roots.py         # Multi-root switching
+│   ├── downloads.py     # M3U8/SOCKS downloads
+│   ├── editor.py        # Video editing
+│   ├── audio.py         # Audio extraction
+│   ├── folders.py       # Folder operations
+│   ├── maintenance.py   # Database maintenance
+│   └── health.py        # Health checks
+├── schemas/             # Pydantic request/response models
+│   ├── video.py         # MoveVideoRequest, RenameVideoRequest, etc.
+│   ├── actor.py         # Actor operations
+│   ├── face.py          # Face operations
+│   ├── download.py      # Download requests
+│   ├── editor.py        # Video edit requests
+│   └── common.py        # Shared schemas (BulkUpdateRequest)
+└── utils/               # Shared utilities
+    ├── constants.py     # Magic numbers (thresholds, timeouts)
+    ├── exceptions.py    # Custom HTTPExceptions
+    ├── ffmpeg.py        # FFmpeg availability check
+    └── serializers.py   # Response serialization
+```
+
 ### Core Files
 
-- **`backend/main.py`** (7,153 lines): FastAPI application with all REST endpoints
+- **`backend/main.py`** (~177 lines): FastAPI application entry point
   - Lifespan management with `@asynccontextmanager`
-  - 50+ API endpoints for video/tag/face/fingerprint operations
+  - Router mounting (15 routers)
   - CORS middleware configuration
   - Static file serving for frontend
 
 - **`backend/database.py`**: SQLAlchemy ORM models
   - `Video`: Main model with metadata, relationships to tags/actors/faces
   - `Tag`, `Actor`, `VideoFingerprint`, `FaceID`, `FaceEncoding`, `VideoFace`
+  - `FolderGroup`: Folder organization (UUID primary key, `order` field)
   - Cascade delete relationships (when Face deleted, encodings/video_faces cascade)
   - Foreign keys with `ondelete='CASCADE'`
   - Database migrations in `migrate_database()` function
 
 - **`backend/config.py`**: Configuration via environment variables and `roots.json`
   - Multi-root management
-  - Environment variable fallbacks
+  - Key attributes: `server_host`, `server_port`, `reload`, `root_directory`
   - Per-root layout preferences
+
+### Services
 
 - **`backend/video_service.py`**: Core video operations
   - Metadata extraction via ffprobe
@@ -127,7 +169,7 @@ open http://localhost:8000/docs
   - Quality presets (fast/balanced/high)
 
 - **`backend/thumbnail_db.py`**: Database-based thumbnail storage
-  - Async BLOB operations
+  - Async BLOB operations (`get_cache_stats()` returns (count, size_mb))
   - Reduces filesystem clutter
 
 ## Key Frontend Components
@@ -268,17 +310,21 @@ if not str(full_path).startswith(str(config.root_directory)):
 
 ### Adding New Endpoints
 
-1. Define Pydantic request model in `main.py`
-2. Create endpoint with proper dependency injection
+1. Define Pydantic request model in appropriate `schemas/*.py` file
+2. Add endpoint to appropriate router in `routers/*.py`
 3. Use `Depends(get_db)` for database sessions
 4. Return proper HTTP status codes (200, 201, 400, 404, 500)
 
 ```python
+# In schemas/video.py
 class UpdateVideoRequest(BaseModel):
     display_name: str | None = None
     description: str | None = None
 
-@app.post("/videos/{video_id}/update")
+# In routers/videos.py
+from schemas.video import UpdateVideoRequest
+
+@router.post("/videos/{video_id}/update")
 async def update_video(
     video_id: int,
     request: UpdateVideoRequest,
@@ -286,6 +332,30 @@ async def update_video(
 ):
     # Implementation here
     pass
+```
+
+### Sharing State Between Routers
+
+Some routers need shared state (e.g., thumbnail_db). Use the pattern in `routers/roots.py`:
+
+```python
+# In routers/roots.py
+_thumbnail_db = None
+
+def set_thumbnail_db(db):
+    global _thumbnail_db
+    _thumbnail_db = db
+
+def get_thumbnail_db():
+    return _thumbnail_db
+
+# In main.py (lifespan)
+from routers.roots import set_thumbnail_db
+set_thumbnail_db(thumbnail_db)
+
+# In other routers
+from routers.roots import get_thumbnail_db
+thumbnail_db = get_thumbnail_db()
 ```
 
 ## Frontend Development Guidelines
