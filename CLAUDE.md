@@ -8,6 +8,92 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Stack**: Python FastAPI backend + Vanilla JavaScript frontend + SQLite database
 
+## Recent Refactoring (2026-01-22)
+
+### Backend API Improvements
+
+**Fixed Folder Group Reorder Endpoint**
+- Changed `/folder-groups/{group_id}/reorder` to accept `direction: "up"|"down"` instead of `position: <number>`
+- Frontend sends direction-based commands, backend swaps positions with adjacent groups
+- Prevents edge case errors when trying to move beyond bounds
+
+**Added Missing API Response Fields**
+- All folder group endpoints now return `color` (hex color string) and `is_system` (0/1 flag)
+- Fields added to: GET /folder-structure, GET /folder-groups, POST /folder-groups, PUT /folder-groups, PATCH /folder-groups/reorder
+- Enables frontend color customization and system folder conditional rendering
+
+**Added Pydantic Schemas for Type Safety**
+- Created `backend/schemas/folder.py` with validated request/response models
+- `FolderGroupCreate`: Validates name, icon, color (hex pattern), folders list
+- `FolderGroupUpdate`: Optional field updates with validation
+- `FolderGroupReorder`: Validates direction is "up" or "down"
+- `FolderGroupResponse`: Complete response schema for consistency
+
+### Frontend Modular Architecture
+
+**Core Utilities (No Dependencies)**
+- `frontend/api-client.js` (400+ lines): Centralized API client class
+  - Single source for all backend communication (replaces 214 scattered fetch() calls)
+  - Methods for videos, folders, tags, actors, faces, fingerprints, editor, search, scan, roots, downloads
+  - Consistent error handling and request patterns
+  - Helper methods for thumbnail URLs and stream URLs
+
+- `frontend/dom-cache.js` (130+ lines): DOM element caching system
+  - Reduces repeated getElementById calls (previously 1,256 queries)
+  - Automatic cache invalidation when elements removed from DOM
+  - Performance metrics tracking (hit rate, cache size, invalidations)
+  - Batch get/invalidate operations
+
+**Feature Modules (Depend on Core)**
+- `frontend/face-recognition-module.js` (~500 lines): Face detection and management
+  - 'S' key workflow: Quick face search from current video frame
+  - 'X' key workflow: Batch extraction scanning 25 frames
+  - Integration with face-api.js (frontend) and InsightFace (backend)
+  - Face cataloging, merging, renaming, deletion
+  - Modal-based UI for search results and face creation
+
+- `frontend/video-editor-module.js` (~600 lines): Pro video editor
+  - Timeline UI with draggable IN/OUT handles
+  - Keyboard shortcuts (I/O for trim points, C for crop, Space for play/pause)
+  - Crop box with corner handles and preset ratios (9:16, 16:9, 1:1, 4:3)
+  - Quality presets (fast/balanced/high)
+  - Processing status polling and auto-refresh after completion
+
+- `frontend/bulk-operations-module.js` (~400 lines): Multi-select bulk operations
+  - Selection mode toggle with visual indicators
+  - Bulk add/remove tags, move folders, delete videos
+  - Bulk metadata extraction and thumbnail generation
+  - Bulk fingerprint generation for duplicate detection
+  - Selection counter and action button state management
+
+**Module Loading Order in index.html**
+```html
+<!-- Core utilities (no dependencies) -->
+<script src="/static/dom-cache.js"></script>
+<script src="/static/api-client.js"></script>
+
+<!-- Feature modules (depend on core utilities) -->
+<script src="/static/face-recognition-module.js"></script>
+<script src="/static/video-editor-module.js"></script>
+<script src="/static/bulk-operations-module.js"></script>
+
+<!-- Main application (depends on all modules) -->
+<script src="/static/app.js"></script>
+```
+
+**Integration Pattern**
+- Main `app.js` instantiates modules in constructor: `this.api = new ClipperAPIClient(this.apiBase)`
+- Modules receive `app` reference for state access: `new FaceRecognitionModule(this)`
+- Modules use `this.app.api` for API calls, `this.app.dom` for cached DOM access
+- Existing app.js methods can be thin wrappers to module methods for backward compatibility
+
+**Benefits**
+- Improved code organization: Separate concerns into focused modules
+- Better maintainability: Each module is self-contained and testable
+- Performance: DOM caching reduces query overhead
+- Consistency: Single API client ensures uniform error handling
+- Scalability: Easy to add new modules without bloating main app.js
+
 ## Architecture
 
 ### High-Level Structure

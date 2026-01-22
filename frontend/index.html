@@ -2799,6 +2799,16 @@
         </div>
     </div>
 
+    <!-- Core utilities (no dependencies) -->
+    <script src="/static/dom-cache.js"></script>
+    <script src="/static/api-client.js"></script>
+
+    <!-- Feature modules (depend on core utilities) -->
+    <script src="/static/face-recognition-module.js"></script>
+    <script src="/static/video-editor-module.js"></script>
+    <script src="/static/bulk-operations-module.js"></script>
+
+    <!-- Main application (depends on all modules) -->
     <script src="/static/app.js"></script>
 </body>
 

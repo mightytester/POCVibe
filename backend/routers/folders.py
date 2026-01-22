@@ -15,6 +15,7 @@ from config import config
 from database import get_db, Video, FolderGroup
 from video_service import VideoService
 from schemas.common import RenameFolderRequest, BulkHashRenameRequest
+from schemas.folder import FolderGroupCreate, FolderGroupUpdate, FolderGroupReorder
 from routers.roots import get_thumbnail_db
 
 logger = logging.getLogger(__name__)
@@ -74,7 +75,11 @@ async def get_folder_structure_groups(db: AsyncSession = Depends(get_db)):
             "icon": g.icon,
             "folders": parse_folders(g.folders),
             "position": g.order,
-            "is_expanded": True
+            "is_expanded": True,
+            "color": g.color,
+            "is_system": g.is_system,
+            "created_at": g.created_at,
+            "updated_at": g.updated_at
         } for g in groups],
         "ungrouped_folders": ungrouped_folders,
         "all_folders": physical_folders
@@ -96,6 +101,8 @@ async def get_folder_groups(db: AsyncSession = Depends(get_db)):
         "folders": parse_folders(g.folders),
         "position": g.order,
         "is_expanded": True,
+        "color": g.color,
+        "is_system": g.is_system,
         "created_at": g.created_at,
         "updated_at": g.updated_at
     } for g in groups]
@@ -103,11 +110,11 @@ async def get_folder_groups(db: AsyncSession = Depends(get_db)):
 
 @router.post("/folder-groups")
 async def create_folder_group(
-    body: dict,
+    body: FolderGroupCreate,
     db: AsyncSession = Depends(get_db)
 ):
     """Create a new folder group."""
-    name = body.get('name', '').strip()
+    name = body.name.strip()
     if not name:
         raise HTTPException(status_code=400, detail="Group name is required")
 
@@ -128,8 +135,9 @@ async def create_folder_group(
     group = FolderGroup(
         id=str(uuid.uuid4()),
         name=name,
-        icon=body.get('icon', '📁'),
-        folders=serialize_folders(body.get('folders', [])),
+        icon=body.icon,
+        color=body.color,
+        folders=serialize_folders(body.folders),
         order=max_order + 1,
         created_at=time.time(),
         updated_at=time.time()
@@ -144,14 +152,18 @@ async def create_folder_group(
         "icon": group.icon,
         "folders": parse_folders(group.folders),
         "position": group.order,
-        "is_expanded": True
+        "is_expanded": True,
+        "color": group.color,
+        "is_system": group.is_system,
+        "created_at": group.created_at,
+        "updated_at": group.updated_at
     }
 
 
 @router.put("/folder-groups/{group_id}")
 async def update_folder_group(
     group_id: str,
-    body: dict,
+    body: FolderGroupUpdate,
     db: AsyncSession = Depends(get_db)
 ):
     """Update a folder group."""
@@ -162,8 +174,8 @@ async def update_folder_group(
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
 
-    if 'name' in body:
-        name = body['name'].strip()
+    if body.name is not None:
+        name = body.name.strip()
         if name:
             # Check for duplicate name (excluding current group)
             existing = await db.execute(
@@ -176,11 +188,14 @@ async def update_folder_group(
                 raise HTTPException(status_code=400, detail="Group with this name already exists")
             group.name = name
 
-    if 'icon' in body:
-        group.icon = body['icon']
+    if body.icon is not None:
+        group.icon = body.icon
 
-    if 'folders' in body:
-        group.folders = serialize_folders(body['folders']) if body['folders'] else '[]'
+    if body.color is not None:
+        group.color = body.color
+
+    if body.folders is not None:
+        group.folders = serialize_folders(body.folders) if body.folders else '[]'
 
     group.updated_at = time.time()
 
@@ -193,7 +208,11 @@ async def update_folder_group(
         "icon": group.icon,
         "folders": parse_folders(group.folders),
         "position": group.order,
-        "is_expanded": True
+        "is_expanded": True,
+        "color": group.color,
+        "is_system": group.is_system,
+        "created_at": group.created_at,
+        "updated_at": group.updated_at
     }
 
 
@@ -219,14 +238,13 @@ async def delete_folder_group(
 @router.patch("/folder-groups/{group_id}/reorder")
 async def reorder_folder_group(
     group_id: str,
-    body: dict,
+    body: FolderGroupReorder,
     db: AsyncSession = Depends(get_db)
 ):
-    """Reorder a folder group (change position)."""
-    new_position = body.get('position')
-    if new_position is None:
-        raise HTTPException(status_code=400, detail="Position is required")
+    """Reorder a folder group (move up or down)."""
+    direction = body.direction
 
+    # Get current group
     result = await db.execute(
         select(FolderGroup).where(FolderGroup.id == group_id)
     )
@@ -236,23 +254,29 @@ async def reorder_folder_group(
 
     old_position = group.order
 
-    # Get all groups
+    # Get all groups sorted by order
     result = await db.execute(
         select(FolderGroup).order_by(FolderGroup.order)
     )
     all_groups = result.scalars().all()
 
-    # Adjust positions
-    if new_position > old_position:
-        # Moving down
-        for g in all_groups:
-            if g.id != group_id and old_position < g.order <= new_position:
-                g.order -= 1
-    else:
-        # Moving up
-        for g in all_groups:
-            if g.id != group_id and new_position <= g.order < old_position:
-                g.order += 1
+    # Calculate new position based on direction
+    if direction == 'up':
+        prev_groups = [g for g in all_groups if g.order < old_position]
+        if not prev_groups:
+            raise HTTPException(status_code=400, detail="Cannot move up - already at top")
+        new_position = prev_groups[-1].order
+    else:  # down
+        next_groups = [g for g in all_groups if g.order > old_position]
+        if not next_groups:
+            raise HTTPException(status_code=400, detail="Cannot move down - already at bottom")
+        new_position = next_groups[0].order
+
+    # Swap positions with adjacent group
+    for g in all_groups:
+        if g.order == new_position:
+            g.order = old_position
+            break
 
     group.order = new_position
     group.updated_at = time.time()
@@ -271,7 +295,11 @@ async def reorder_folder_group(
         "icon": g.icon,
         "folders": parse_folders(g.folders),
         "position": g.order,
-        "is_expanded": True
+        "is_expanded": True,
+        "color": g.color,
+        "is_system": g.is_system,
+        "created_at": g.created_at,
+        "updated_at": g.updated_at
     } for g in groups]
 
 
