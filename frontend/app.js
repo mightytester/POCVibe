@@ -2521,7 +2521,14 @@ class ClipperApp {
         this.currentFavoriteFilter = false;
 
         // Select ALL folders (opposite of the default empty state)
-        const allFolders = this.folderStructure.all_folders || [];
+        // Get all folders from structure, or extract from cached videos if available
+        let allFolders = this.folderStructure.all_folders || [];
+        if (allFolders.length === 0 && this.allVideosCatalog && this.allVideosCatalog.length > 0) {
+            // Extract unique folder names from cached videos
+            const folderSet = new Set(this.allVideosCatalog.map(v => v.category).filter(Boolean));
+            allFolders = Array.from(folderSet);
+            console.log(`📂 Extracted ${allFolders.length} folders from cached videos`);
+        }
         this.currentFolderFilter = [...allFolders];
         const checkboxes = document.querySelectorAll('#folderFilterList input[type="checkbox"]');
         checkboxes.forEach(cb => cb.checked = true);
@@ -2530,8 +2537,8 @@ class ClipperApp {
 
         // Load correct view based on current view mode
         if (this.currentView === 'list') {
-            // Collection View: Load all videos flat
-            this.loadAllVideosFlat();
+            // Collection View: Show all videos without folder filtering
+            this.showAllVideosInCollection();
         } else {
             // Explorer View: Load "All Videos" category
             this.loadCategory('_all');
@@ -9084,10 +9091,47 @@ class ClipperApp {
             this.enableAllFilters();
         } catch (error) {
             console.error('❌ Error loading all videos:', error);
-            console.log('Failed to load videos')
+            console.log('Failed to load videos');
             // Enable filters even on error so user can retry
             this.enableAllFilters();
         }
+    }
+
+    showAllVideosInCollection() {
+        /**
+         * Show ALL videos in collection view without any folder filtering
+         * Used when clearing filters - bypasses folder filter to show complete collection
+         */
+        console.log('📺 Showing all videos in collection (no folder filtering)');
+
+        // Restore from cache if available
+        if (this.hasLoadedFullCollection && this.allVideosCatalog && this.allVideosCatalog.length > 0) {
+            console.log(`📦 Using cached collection: ${this.allVideosCatalog.length} videos`);
+            this.allVideos = [...this.allVideosCatalog];
+            this.videos = [...this.allVideosCatalog];
+        } else if (this.allVideos && this.allVideos.length > 0) {
+            // Use current allVideos
+            this.videos = [...this.allVideos];
+        } else {
+            // No cached data, need to fetch
+            console.log('⚠️ No cached videos, fetching from server...');
+            this.loadAllVideosFlat(true);
+            return;
+        }
+
+        // Populate metadata filters
+        this.populateSeriesFilter();
+        this.populateYearFilter();
+        this.populateChannelFilter();
+
+        // Apply sorting but NOT folder filtering
+        this.applySorting();
+        this.resetPagination();
+        this.renderVideoGrid();
+        this.updateLoadMoreButton();
+        this.enableAllFilters();
+
+        console.log(`✅ Showing ${this.videos.length} total videos`);
     }
 
     async renderSeriesView() {
