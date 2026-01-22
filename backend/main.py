@@ -171,7 +171,7 @@ if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
         "main:app",
-        host=config.host,
-        port=config.port,
-        reload=config.debug
+        host=config.server_host,
+        port=config.server_port,
+        reload=config.reload
     )
