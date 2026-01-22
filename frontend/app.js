@@ -11,8 +11,11 @@ class ClipperApp {
         this.dom = window.DOMCache;
         this.storage = window.SettingsStorage;
 
-        // Initialize feature modules (lazy - instantiated when first needed)
-        // face-recognition-module.js handles face detection, search, and cataloging
+        // Initialize feature modules
+        // context-menu-module.js handles video and face context menus
+        this.contextMenu = new window.ContextMenuModule(this);
+
+        // face-recognition-module.js handles face detection, search, and cataloging (lazy)
         this._faceModule = null; // Lazy initialized
 
         // Multi-root configuration
@@ -14099,8 +14102,23 @@ class ClipperApp {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
     }
 
-    // Video Context Menu Methods
+    // Video Context Menu Methods - Delegate to ContextMenuModule
     showVideoContextMenu(event, videoId, videoName) {
+        this.contextMenu.showVideoContextMenu(event, videoId, videoName)
+    }
+
+    hideVideoContextMenu() {
+        this.contextMenu.hideVideoContextMenu()
+    }
+
+    // Legacy context menu state (now managed by module, kept for backward compatibility)
+    get contextMenuVideoId() { return this.contextMenu.contextMenuVideoId }
+    set contextMenuVideoId(val) { this.contextMenu.contextMenuVideoId = val }
+    get contextMenuVideoName() { return this.contextMenu.contextMenuVideoName }
+    set contextMenuVideoName(val) { this.contextMenu.contextMenuVideoName = val }
+
+    /* OLD showVideoContextMenu - Replaced by ContextMenuModule
+    showVideoContextMenu_OLD(event, videoId, videoName) {
         // Close any existing context menu
         this.hideVideoContextMenu();
 
@@ -14263,15 +14281,28 @@ class ClipperApp {
             document.addEventListener('click', this.handleContextMenuClickOutside.bind(this), { once: true });
         }, 0);
     }
+    END OF OLD showVideoContextMenu */
 
-    hideVideoContextMenu() {
+    /* OLD hideVideoContextMenu - Now handled by ContextMenuModule
+    hideVideoContextMenu_OLD() {
         const existingMenu = document.getElementById('videoContextMenu');
         if (existingMenu) {
             existingMenu.remove();
         }
     }
+    */
 
+    // Face Context Menu - Delegate to ContextMenuModule
     showFaceSearchContextMenu(event, faceId, faceName) {
+        this.contextMenu.showFaceSearchContextMenu(event, faceId, faceName)
+    }
+
+    hideFaceSearchContextMenu() {
+        this.contextMenu.hideFaceSearchContextMenu()
+    }
+
+    /* OLD showFaceSearchContextMenu - Now handled by ContextMenuModule
+    showFaceSearchContextMenu_OLD(event, faceId, faceName) {
         // Close any existing face context menu
         this.hideFaceSearchContextMenu();
 
@@ -14337,6 +14368,11 @@ class ClipperApp {
             this.hideFaceSearchContextMenu();
         }
     }
+    END OF OLD Face Context Menu code */
+
+    // Note: The following face-related methods are kept in app.js because they handle
+    // complex modal interactions that are tightly coupled with app state.
+    // The context menu module delegates to these methods.
 
     searchVideosWithFaceFromContext(faceId, faceName) {
         // Redirect to search with this face across all videos
@@ -17180,12 +17216,14 @@ class ClipperApp {
         }
     }
 
+    /* OLD handleContextMenuClickOutside - Now handled by ContextMenuModule
     handleContextMenuClickOutside(event) {
         const menu = document.getElementById('videoContextMenu');
         if (menu && !menu.contains(event.target)) {
             this.hideVideoContextMenu();
         }
     }
+    */
 
     // Thumbnail Generation Methods
     showThumbnailModal(videoId, videoName) {
