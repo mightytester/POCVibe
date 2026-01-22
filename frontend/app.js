@@ -6047,6 +6047,11 @@ class ClipperApp {
             this.showDuplicatesReviewView();
         };
 
+        document.getElementById('menuCleanupDatabaseBtn').onclick = () => {
+            this.hideActionsMenu();
+            this.cleanupDatabase();
+        };
+
         // Duplicates Review View exit button
         document.getElementById('exitDuplicatesReviewView').onclick = () => {
             this.exitDuplicatesReviewView();
@@ -12826,6 +12831,66 @@ class ClipperApp {
         } catch (error) {
             console.error('❌ Error during fast rescan:', error);
             console.log('❌ Fast rescan failed. Check console for details.')
+        }
+    }
+
+    async cleanupDatabase() {
+        /**
+         * 🧹 Cleanup Database - Remove entries for files that no longer exist
+         * Simple one-click solution to remove deleted videos from database
+         */
+        try {
+            // Confirm with user
+            const confirmed = confirm(
+                '🧹 Cleanup Database\n\n' +
+                'This will scan all folders and remove database entries for videos that no longer exist on disk.\n\n' +
+                'Continue?'
+            );
+
+            if (!confirmed) return;
+
+            console.log('🧹 Starting database cleanup...');
+            this.showRefreshLoadingOverlay();
+
+            // Call scan with prune_missing=true to remove deleted files
+            const response = await fetch(`${this.apiBase}/scan?sync_db=true&prune_missing=true&fast_mode=true`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            const pruned = data.pruned_missing || 0;
+
+            this.hideRefreshLoadingOverlay();
+
+            if (pruned > 0) {
+                alert(`🧹 Cleanup complete!\n\nRemoved ${pruned} database entries for deleted files.`);
+
+                // Force reload collection cache
+                this.hasLoadedFullCollection = false;
+                this.allVideosCatalog = [];
+
+                // Reload current view
+                if (this.currentView === 'list') {
+                    await this.loadAllVideosFlat(true);
+                } else {
+                    await this.loadFolderStructure();
+                    this.renderFolderExplorer();
+                }
+            } else {
+                alert('✅ Database is clean!\n\nNo deleted files found.');
+            }
+
+            console.log(`🧹 Cleanup complete: ${pruned} entries removed`);
+
+        } catch (error) {
+            console.error('❌ Error during database cleanup:', error);
+            this.hideRefreshLoadingOverlay();
+            alert('❌ Cleanup failed. Check console for details.');
         }
     }
 
