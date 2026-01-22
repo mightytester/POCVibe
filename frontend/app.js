@@ -27,6 +27,27 @@ class ClipperApp {
         // duplicate-review-module.js handles duplicate detection and review
         this.duplicateModule = new window.DuplicateReviewModule(this);
 
+        // bulk-edit-module.js handles folder bulk editing
+        this.bulkEditModule = new window.BulkEditModule(this);
+
+        // curation-mode-module.js handles curation bar and video controls
+        this.curationModule = new window.CurationModeModule(this);
+
+        // image-viewer-module.js handles image viewing
+        this.imageViewer = new window.ImageViewerModule(this);
+
+        // download-module.js handles M3U8/SOCKS/Quick downloads
+        this.downloadModule = new window.DownloadModule(this);
+
+        // sorting-module.js handles sorting, filtering, and view switching
+        this.sorting = new window.SortingModule(this);
+
+        // scan-system-module.js handles folder scanning and batch operations
+        this.scanSystem = new window.ScanSystemModule(this);
+
+        // fingerprint-module.js handles fingerprint generation and duplicate detection
+        this.fingerprint = new window.FingerprintModule(this);
+
         // face-recognition-module.js handles face detection, search, and cataloging (lazy)
         this._faceModule = null; // Lazy initialized
 
