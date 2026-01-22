@@ -520,7 +520,7 @@ class ClipperApp {
     async createFolderGroup(groupData) {
         /**
          * Create a new custom folder group
-         * 
+         *
          * groupData: {
          *   name: "Group Name",
          *   folders: ["FOLDER1", "FOLDER2"],
@@ -536,19 +536,22 @@ class ClipperApp {
             });
 
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
+                const errorData = await response.json().catch(() => ({}));
+                const errorMsg = errorData.detail || `HTTP ${response.status}`;
+                this.showStatus(`Failed to create group: ${errorMsg}`, 'error');
+                throw new Error(errorMsg);
             }
 
-            const data = await response.json();
-            console.log('✅ Folder group created:', data.group);
+            // Backend returns group object directly (not wrapped in "group" property)
+            const group = await response.json();
+            console.log('✅ Folder group created:', group);
 
             // Reload groups
             await this.loadFolderGroups();
 
-            return data.group;
+            return group;
         } catch (error) {
             console.error('❌ Failed to create folder group:', error);
-            console.log('Failed to create folder group')
             return null;
         }
     }
@@ -747,12 +750,14 @@ class ClipperApp {
         const checkboxes = document.querySelectorAll('.group-folder-checkbox:checked');
         const folders = Array.from(checkboxes).map(cb => cb.value);
 
-        // Validation
+        // Validation with user feedback
         if (!name) {
+            this.showStatus('Please enter a group name', 'error');
             return;
         }
 
         if (folders.length === 0) {
+            this.showStatus('Please select at least one folder', 'error');
             return;
         }
 
@@ -765,13 +770,18 @@ class ClipperApp {
         });
 
         if (result) {
+            // Always close modal first
             this.closeGroupDialog();
 
-            // Refresh explorer view to show new group
-            if (this.currentView === 'explorer' && !this.currentCategory) {
+            // Show success message
+            this.showStatus(`Group "${name}" created successfully`, 'success');
+
+            // Always refresh explorer view to show new group
+            if (this.currentView === 'explorer') {
                 this.renderMainCategories();
             }
         }
+        // Error case is already handled in createFolderGroup with showStatus
     }
 
     async reorderGroup(groupId, direction) {
@@ -788,7 +798,13 @@ class ClipperApp {
             });
 
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
+                const errorData = await response.json().catch(() => ({}));
+                const errorMsg = errorData.detail || `HTTP ${response.status}`;
+                // Don't show error for edge cases (already at top/bottom)
+                if (response.status !== 400) {
+                    this.showStatus(`Failed to reorder group: ${errorMsg}`, 'error');
+                }
+                throw new Error(errorMsg);
             }
 
             const data = await response.json();
@@ -797,7 +813,7 @@ class ClipperApp {
             // Reload groups and refresh UI
             await this.loadFolderGroups();
 
-            if (this.currentView === 'explorer' && !this.currentCategory) {
+            if (this.currentView === 'explorer') {
                 this.renderMainCategories();
             }
         } catch (error) {
@@ -1074,12 +1090,14 @@ class ClipperApp {
         const checkboxes = document.querySelectorAll('.edit-group-folder-checkbox:checked');
         const folders = Array.from(checkboxes).map(cb => cb.value);
 
-        // Validation
+        // Validation with user feedback
         if (!name) {
+            this.showStatus('Please enter a group name', 'error');
             return;
         }
 
         if (folders.length === 0) {
+            this.showStatus('Please select at least one folder', 'error');
             return;
         }
 
@@ -1124,19 +1142,27 @@ class ClipperApp {
             });
 
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
+                const errorData = await response.json().catch(() => ({}));
+                const errorMsg = errorData.detail || `HTTP ${response.status}`;
+                this.showStatus(`Failed to update group: ${errorMsg}`, 'error');
+                throw new Error(errorMsg);
             }
 
-            const data = await response.json();
-            console.log('✅ Folder group updated:', data.group);
+            // Backend returns group object directly (not wrapped)
+            const updatedGroup = await response.json();
+            console.log('✅ Folder group updated:', updatedGroup);
 
             // Reload groups
             await this.loadFolderGroups();
 
+            // Close modal
             this.closeEditGroupDialog();
 
+            // Show success message
+            this.showStatus(`Group "${name}" updated successfully`, 'success');
+
             // Refresh explorer view
-            if (this.currentView === 'explorer' && !this.currentCategory) {
+            if (this.currentView === 'explorer') {
                 this.renderMainCategories();
             }
         } catch (error) {
@@ -1240,20 +1266,26 @@ class ClipperApp {
             });
 
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
+                const errorData = await response.json().catch(() => ({}));
+                const errorMsg = errorData.detail || `HTTP ${response.status}`;
+                this.showStatus(`Failed to delete group: ${errorMsg}`, 'error');
+                throw new Error(errorMsg);
             }
 
-            const data = await response.json();
             console.log('✅ Folder group deleted');
 
             // Reload groups
             await this.loadFolderGroups();
 
+            // Close modals
             this.closeDeleteConfirmModal();
             this.closeEditGroupDialog();
 
+            // Show success message
+            this.showStatus('Group deleted successfully', 'success');
+
             // Refresh explorer view
-            if (this.currentView === 'explorer' && !this.currentCategory) {
+            if (this.currentView === 'explorer') {
                 this.renderMainCategories();
             }
         } catch (error) {
