@@ -25367,8 +25367,25 @@ This action cannot be undone. Continue?`;
     // ====================================
 
     async showFaceCatalogView() {
+        console.log('📸 Entering Face Catalog View');
+
+        // Save current view state (like Duplicates Review does)
+        this.previousViewState = {
+            videos: [...this.videos],
+            allVideos: [...this.allVideos],
+            currentSearchQuery: this.currentSearchQuery,
+            currentTagFilter: this.currentTagFilter,
+            currentFolderFilter: [...this.currentFolderFilter],
+            currentSort: this.currentSort,
+            currentView: this.currentView,
+            currentCategory: this.currentCategory,
+            currentSubcategory: this.currentSubcategory
+        };
+
         // Hide main UI, show face catalog view
         document.getElementById('videoGrid').style.display = 'none';
+        document.getElementById('folderExplorer').style.display = 'none';
+        document.getElementById('seriesView').style.display = 'none';
         document.querySelector('.controls').style.display = 'none';
         document.getElementById('faceCatalogView').style.display = 'flex';
 
@@ -25454,10 +25471,10 @@ This action cannot be undone. Continue?`;
     }
 
     exitFaceCatalogView() {
-        // Hide face catalog, show main UI
+        console.log('📸 Exiting Face Catalog View');
+
+        // Hide face catalog
         document.getElementById('faceCatalogView').style.display = 'none';
-        document.getElementById('videoGrid').style.display = 'grid';
-        document.querySelector('.controls').style.display = 'block';
 
         // Restore body scroll
         document.body.classList.remove('video-modal-open');
@@ -25478,8 +25495,65 @@ This action cannot be undone. Continue?`;
             refreshBtn.remove();
         }
 
-        // Refresh main view if needed
-        this.renderVideoGrid();
+        // Remove similar faces button
+        const similarBtn = document.getElementById('faceCatalogSimilarBtn');
+        if (similarBtn) {
+            similarBtn.remove();
+        }
+
+        // Restore previous view state
+        if (this.previousViewState) {
+            console.log('📸 Restoring previous view state:', this.previousViewState);
+
+            this.videos = [...this.previousViewState.videos];
+            this.allVideos = [...this.previousViewState.allVideos];
+            this.currentSearchQuery = this.previousViewState.currentSearchQuery;
+            this.currentTagFilter = this.previousViewState.currentTagFilter;
+            this.currentFolderFilter = [...this.previousViewState.currentFolderFilter];
+            this.currentSort = this.previousViewState.currentSort;
+
+            // Show controls
+            document.querySelector('.controls').style.display = 'block';
+
+            // Restore view type
+            if (this.previousViewState.currentView === 'explorer') {
+                this.currentView = 'explorer';
+                this.currentCategory = this.previousViewState.currentCategory;
+                this.currentSubcategory = this.previousViewState.currentSubcategory;
+
+                document.getElementById('videoGrid').style.display = 'none';
+                document.getElementById('folderExplorer').style.display = 'block';
+                this.renderFolderExplorer();
+            } else if (this.previousViewState.currentView === 'series') {
+                this.currentView = 'series';
+                document.getElementById('videoGrid').style.display = 'none';
+                document.getElementById('folderExplorer').style.display = 'none';
+                document.getElementById('seriesView').style.display = 'block';
+                this.renderSeriesView();
+            } else {
+                // Return to collection view
+                this.currentView = 'list';
+                document.getElementById('folderExplorer').style.display = 'none';
+                document.getElementById('seriesView').style.display = 'none';
+                document.getElementById('videoGrid').style.display = 'grid';
+                document.getElementById('videoGrid').innerHTML = '';
+                this.renderVideoGrid();
+            }
+
+            this.previousViewState = null;
+        } else {
+            // No saved state, default to collection view
+            console.log('📸 No saved state, defaulting to collection view');
+            this.currentView = 'list';
+            document.querySelector('.controls').style.display = 'block';
+            document.getElementById('folderExplorer').style.display = 'none';
+            document.getElementById('seriesView').style.display = 'none';
+            document.getElementById('videoGrid').style.display = 'grid';
+            document.getElementById('videoGrid').innerHTML = '';
+            this.renderVideoGrid();
+        }
+
+        console.log('📸 Returned from Face Catalog');
     }
 
     async loadFaceCatalogData(forceReload = false) {
