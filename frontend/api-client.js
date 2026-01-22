@@ -51,6 +51,18 @@ class ClipperAPIClient {
         return this.request(`/videos${queryString ? `?${queryString}` : ''}`);
     }
 
+    async getVideosByFolder(folderName, bustCache = false) {
+        const params = bustCache ? `?_t=${Date.now()}&cache=${Math.random()}` : '';
+        return this.request(`/videos/${encodeURIComponent(folderName)}${params}`, {
+            cache: 'no-store'
+        });
+    }
+
+    async getAllVideos(bustCache = false) {
+        const params = bustCache ? `?_t=${Date.now()}` : '';
+        return this.request(`/videos/_all${params}`);
+    }
+
     async getVideo(videoId) {
         return this.request(`/videos/${videoId}`);
     }
@@ -320,6 +332,44 @@ class ClipperAPIClient {
     async scanFolder(folderName) {
         return this.request(`/scan/folder/${encodeURIComponent(folderName)}`, {
             method: 'POST'
+        });
+    }
+
+    async getScanStatus() {
+        return this.request('/scan/status');
+    }
+
+    async scanFolderSmartRefresh(folderName) {
+        return this.request(`/scan/folder/${encodeURIComponent(folderName)}/smart-refresh`, {
+            method: 'POST'
+        });
+    }
+
+    async scanFolderScanOnly(folderName) {
+        return this.request(`/scan/folder/${encodeURIComponent(folderName)}/scan-only`, {
+            method: 'POST'
+        });
+    }
+
+    async scanFolderWithOptions(folderName, options = {}) {
+        const params = new URLSearchParams();
+        if (options.recursive !== undefined) params.set('recursive', options.recursive);
+        if (options.parentCategory) params.set('parent_category', options.parentCategory);
+        if (options.hierarchical !== undefined) params.set('hierarchical', options.hierarchical);
+        if (options.syncDb !== undefined) params.set('sync_db', options.syncDb);
+
+        const queryString = params.toString();
+        const url = `/scan/folder/${encodeURIComponent(folderName)}${queryString ? '?' + queryString : ''}`;
+        return this.request(url, { method: 'POST' });
+    }
+
+    async scanSingleVideo(folderName, filename) {
+        return this.request('/scan/video/single', {
+            method: 'POST',
+            body: JSON.stringify({
+                folder_name: folderName,
+                filename: filename
+            })
         });
     }
 

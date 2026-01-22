@@ -490,13 +490,7 @@ class ClipperApp {
     async loadScanStatus() {
         try {
             console.log('📋 Loading scan status...');
-            const response = await fetch(`${this.apiBase}/scan/status`);
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-
-            const data = await response.json();
+            const data = await this.api.getScanStatus();
             this.scanStatus = data.folders || {};
             console.log('📋 Loaded scan status:', data);
 
@@ -530,10 +524,8 @@ class ClipperApp {
 
     async loadFolderStructure() {
         try {
-            const response = await fetch(`${this.apiBase}/folder-structure`);
-            const data = await response.json();
             // API returns: {groups: [...], ungrouped_folders: [...], all_folders: [...]}
-            this.folderStructure = data;
+            this.folderStructure = await this.api.getFolderStructure();
             console.log('📁 Folder structure loaded:', this.folderStructure);
 
             // Populate folder filter dropdown
@@ -550,9 +542,8 @@ class ClipperApp {
          * Groups can be used to organize folders in explorer view
          */
         try {
-            const response = await fetch(`${this.apiBase}/folder-groups`);
-            const data = await response.json();
             // API returns array directly: [{id, name, icon, folders, ...}, ...]
+            const data = await this.api.getFolderGroups();
             this.folderGroups = Array.isArray(data) ? data : [];
             console.log('📊 Folder groups loaded:', this.folderGroups);
         } catch (error) {
@@ -573,21 +564,7 @@ class ClipperApp {
          * }
          */
         try {
-            const response = await fetch(`${this.apiBase}/folder-groups`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(groupData)
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                const errorMsg = errorData.detail || `HTTP ${response.status}`;
-                this.showStatus(`Failed to create group: ${errorMsg}`, 'error');
-                throw new Error(errorMsg);
-            }
-
-            // Backend returns group object directly (not wrapped in "group" property)
-            const group = await response.json();
+            const group = await this.api.createFolderGroup(groupData);
             console.log('✅ Folder group created:', group);
 
             // Reload groups
@@ -596,6 +573,7 @@ class ClipperApp {
             return group;
         } catch (error) {
             console.error('❌ Failed to create folder group:', error);
+            this.showStatus(`Failed to create group: ${error.message}`, 'error');
             return null;
         }
     }
@@ -833,25 +811,7 @@ class ClipperApp {
          * Move a group up or down in the order
          */
         try {
-            const response = await fetch(`${this.apiBase}/folder-groups/${groupId}/reorder`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    direction: direction
-                })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                const errorMsg = errorData.detail || `HTTP ${response.status}`;
-                // Don't show error for edge cases (already at top/bottom)
-                if (response.status !== 400) {
-                    this.showStatus(`Failed to reorder group: ${errorMsg}`, 'error');
-                }
-                throw new Error(errorMsg);
-            }
-
-            const data = await response.json();
+            const data = await this.api.reorderFolderGroup(groupId, direction);
             console.log(`✅ Group moved ${direction}:`, data);
 
             // Reload groups and refresh UI
@@ -862,6 +822,10 @@ class ClipperApp {
             }
         } catch (error) {
             console.error(`❌ Failed to move group ${direction}:`, error);
+            // Don't show error for edge cases (already at top/bottom)
+            if (!error.message.includes('400')) {
+                this.showStatus(`Failed to reorder group: ${error.message}`, 'error');
+            }
         }
     }
 
@@ -2226,10 +2190,10 @@ class ClipperApp {
             currentSearch: this.currentSearch
         };
 
-        // Hide main UI elements
-        const listViewControls = document.getElementById('listViewControls');
-        const folderExplorer = document.getElementById('folderExplorer');
-        const videoGrid = document.getElementById('videoGrid');
+        // Hide main UI elements (using DOM cache)
+        const listViewControls = this.dom.get('listViewControls');
+        const folderExplorer = this.dom.get('folderExplorer');
+        const videoGrid = this.dom.get('videoGrid');
         if (listViewControls) listViewControls.style.display = 'none';
         if (folderExplorer) folderExplorer.style.display = 'none';
         if (videoGrid) videoGrid.style.display = 'none';
@@ -2277,13 +2241,13 @@ class ClipperApp {
             currentSearch: this.currentSearch
         };
 
-        // Hide main UI elements
-        const listViewControls = document.getElementById('listViewControls');
-        const folderExplorer = document.getElementById('folderExplorer');
-        const videoGrid = document.getElementById('videoGrid');
-        if (listViewControls) listViewControls.style.display = 'none';
-        if (folderExplorer) folderExplorer.style.display = 'none';
-        if (videoGrid) videoGrid.style.display = 'none';
+        // Hide main UI elements (using DOM cache)
+        const listViewControlsFace = this.dom.get('listViewControls');
+        const folderExplorerFace = this.dom.get('folderExplorer');
+        const videoGridFace = this.dom.get('videoGrid');
+        if (listViewControlsFace) listViewControlsFace.style.display = 'none';
+        if (folderExplorerFace) folderExplorerFace.style.display = 'none';
+        if (videoGridFace) videoGridFace.style.display = 'none';
 
         // Switch to face results view
         this.currentView = 'face-results';
@@ -2300,7 +2264,7 @@ class ClipperApp {
         /**
          * Render a dedicated view for face search results
          */
-        const videoGrid = document.getElementById('videoGrid');
+        const videoGrid = this.dom.get('videoGrid');
         if (!videoGrid) return;
 
         videoGrid.style.display = 'block';
@@ -4804,18 +4768,7 @@ class ClipperApp {
 
         try {
             // Move video to DELETE folder (soft delete, reversible)
-            const response = await fetch(`${this.apiBase}/videos/${videoId}/delete`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || `HTTP ${response.status}`);
-            }
-
+            await this.api.deleteVideo(videoId);
             console.log('✅ Video moved to DELETE:', videoName);
             console.log('Video moved to DELETE folder')
 
@@ -7663,8 +7616,7 @@ class ClipperApp {
 
     async loadAllTags() {
         try {
-            const response = await fetch(`${this.apiBase}/tags`);
-            this.allTags = await response.json();
+            this.allTags = await this.api.getTags();
             this.populateTagFilter();
         } catch (error) {
             console.error('Failed to load tags:', error);
@@ -7673,8 +7625,7 @@ class ClipperApp {
 
     async loadAllActors() {
         try {
-            const response = await fetch(`${this.apiBase}/actors`);
-            this.allActors = await response.json();
+            this.allActors = await this.api.getActors();
         } catch (error) {
             console.error('Failed to load actors:', error);
         }
@@ -8608,20 +8559,19 @@ class ClipperApp {
         document.querySelectorAll('.view-btn').forEach(btn => {
             btn.classList.remove('active');
         });
-        const viewBtn = document.getElementById(`${viewType}ViewBtn`);
+        const viewBtn = this.dom.get(`${viewType}ViewBtn`);
         if (viewBtn) {
             viewBtn.classList.add('active');
         } else {
             console.warn(`⚠️ View button not found: ${viewType}ViewBtn`);
         }
 
-        // Get UI elements with error checking
-        const videoGrid = document.getElementById('videoGrid');
-        const folderExplorer = document.getElementById('folderExplorer');
-        const seriesView = document.getElementById('seriesView');
-        const breadcrumbNav = document.getElementById('breadcrumbNav');
-        const listViewControls = document.getElementById('listViewControls');
-        // explorerViewControls removed - no longer needed
+        // Get UI elements with error checking (using DOM cache)
+        const videoGrid = this.dom.get('videoGrid');
+        const folderExplorer = this.dom.get('folderExplorer');
+        const seriesView = this.dom.get('seriesView');
+        const breadcrumbNav = this.dom.get('breadcrumbNav');
+        const listViewControls = this.dom.get('listViewControls');
 
         if (!videoGrid || !folderExplorer || !seriesView) {
             console.error('❌ Missing required DOM elements:', {
@@ -9066,10 +9016,8 @@ class ClipperApp {
                 return;
             }
 
-            const timestamp = new Date().getTime();
-            console.log(`📋 Loading ALL videos in flat list with cache-buster: ${timestamp} (forceReload: ${forceReload})`);
-            const response = await fetch(`${this.apiBase}/videos/_all?_t=${timestamp}`);
-            const data = await response.json();
+            console.log(`📋 Loading ALL videos in flat list (forceReload: ${forceReload})`);
+            const data = await this.api.getAllVideos(true);
             this.allVideos = data.videos || [];
             this.allVideosCatalog = data.videos || []; // Store complete catalog for face searching
             console.log(`📊 Loaded ${this.allVideos.length} total videos from all folders`);
@@ -11691,15 +11639,7 @@ class ClipperApp {
             this.showRefreshLoadingOverlay();
 
             // Step 1: Call the smart refresh endpoint
-            const response = await fetch(`${this.apiBase}/scan/folder/${encodeURIComponent(folderName)}/smart-refresh`, {
-                method: 'POST'
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-
-            const data = await response.json();
+            const data = await this.api.scanFolderSmartRefresh(folderName);
             console.log(`✅ Smart refresh completed:`, data);
 
             // Step 2: Clear all browser image caches for this folder
@@ -11709,21 +11649,12 @@ class ClipperApp {
             await this.loadScanStatus();
             await this.loadFolderStructure();
 
-
             // Step 4: Force reload videos with aggressive cache busting
-            const timestamp = Date.now();
-            const videosResponse = await fetch(
-                `${this.apiBase}/videos/${encodeURIComponent(folderName)}?_t=${timestamp}&cache=${Math.random()}`,
-                { cache: 'no-store' } // Browser won't cache this response
-            );
-
-            if (videosResponse.ok) {
-                const videos = await videosResponse.json();
-                // Ensure videos is always an array
-                this.allVideos = Array.isArray(videos) ? videos : (videos?.videos || []);
-                this.videos = Array.isArray(videos) ? videos : (videos?.videos || []);
-                console.log(`🔄 Reloaded ${this.videos.length} videos from API`);
-            }
+            const videos = await this.api.getVideosByFolder(folderName, true);
+            // Ensure videos is always an array
+            this.allVideos = Array.isArray(videos) ? videos : (videos?.videos || []);
+            this.videos = Array.isArray(videos) ? videos : (videos?.videos || []);
+            console.log(`🔄 Reloaded ${this.videos.length} videos from API`);
 
             // Step 5: Clear DOM image elements to force reload
             this.clearImageElementsForFolder(folderName);
@@ -11861,16 +11792,7 @@ class ClipperApp {
 
             // Scan each folder for file changes (parallel)
             const folderScanPromises = allFolders.map(folderName =>
-                fetch(`${this.apiBase}/scan/folder/${encodeURIComponent(folderName)}/scan-only`, {
-                    method: 'POST'
-                })
-                    .then(r => {
-                        if (!r.ok) {
-                            console.error(`❌ Scan failed for folder: ${folderName}`);
-                            return null;
-                        }
-                        return r.json();
-                    })
+                this.api.scanFolderScanOnly(folderName)
                     .catch(err => {
                         console.error(`❌ Error scanning folder ${folderName}:`, err);
                         return null;
@@ -11897,10 +11819,7 @@ class ClipperApp {
             // Force reload videos with aggressive cache busting
             for (const folderName of allFolders) {
                 try {
-                    await fetch(
-                        `${this.apiBase}/videos/${encodeURIComponent(folderName)}?_t=${timestamp}&cache=${Math.random()}`,
-                        { cache: 'no-store' }
-                    );
+                    await this.api.getVideosByFolder(folderName, true);
                 } catch (err) {
                     // Non-critical, continue refreshing other folders
                     console.warn(`Cache bust fetch for ${folderName}:`, err);
@@ -12025,16 +11944,7 @@ class ClipperApp {
         try {
             console.log(`🔄 Scanning folder: ${folderName}...`)
 
-            const response = await fetch(`${this.apiBase}/scan/folder/${encodeURIComponent(folderName)}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-
-            const data = await response.json();
+            const data = await this.api.scanFolder(folderName);
 
             console.log(`✅ Scanned ${folderName}: ${data.videos_found} videos (${data.scan_duration?.toFixed(1)}s)`)
 
@@ -12516,26 +12426,12 @@ class ClipperApp {
         try {
             console.log(`📂 Scanning ${folderName}...`)
 
-            const params = new URLSearchParams({
-                hierarchical: 'true',
-                recursive: 'false',
-                sync_db: 'true'
+            const result = await this.api.scanFolderWithOptions(folderName, {
+                hierarchical: true,
+                recursive: false,
+                syncDb: true,
+                parentCategory: parentCategory
             });
-
-            if (parentCategory) {
-                params.set('parent_category', parentCategory);
-            }
-
-            const response = await fetch(`${this.apiBase}/scan/folder/${encodeURIComponent(folderName)}?${params}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-
-            const result = await response.json();
 
             // Show scan results
             console.log(`✅ Scanned ${folderName}: ${result.total_direct_videos} videos found`)
@@ -12563,14 +12459,7 @@ class ClipperApp {
     async loadVideosForCategory(folderName) {
         try {
             console.log(`📂 Loading videos for category: ${folderName}`);
-            const timestamp = new Date().getTime();
-            const response = await fetch(`${this.apiBase}/videos/${folderName}?_t=${timestamp}`);
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-
-            const data = await response.json();
+            const data = await this.api.getVideosByFolder(folderName, true);
             this.allVideos = data.videos || [];
             console.log(`📊 Loaded ${this.allVideos.length} videos from ${folderName}`);
 
@@ -12702,16 +12591,7 @@ class ClipperApp {
         try {
             console.log(`🔍 Scanning folder only: ${folderName}...`)
 
-            const response = await fetch(`${this.apiBase}/scan/folder/${encodeURIComponent(folderName)}?recursive=false`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-
-            const data = await response.json();
+            const data = await this.api.scanFolderWithOptions(folderName, { recursive: false });
             console.log(`✅ Scanned ${folderName} (folder only): ${data.videos_found} videos`)
 
             await this.loadScanStatus();
@@ -12729,16 +12609,7 @@ class ClipperApp {
         try {
             console.log(`📁 Scanning ${folderName} and all subfolders...`)
 
-            const response = await fetch(`${this.apiBase}/scan/folder/${encodeURIComponent(folderName)}?recursive=true`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-
-            const data = await response.json();
+            const data = await this.api.scanFolderWithOptions(folderName, { recursive: true });
             console.log(`✅ Scanned ${folderName} (with subfolders): ${data.videos_found} videos`)
 
             // Update scan status and refresh current view
@@ -12955,12 +12826,7 @@ class ClipperApp {
             // Fetch all videos in this folder
             console.log(`📊 Loading videos from ${folderName}...`)
 
-            const response = await fetch(`${this.apiBase}/videos/${encodeURIComponent(folderName)}`);
-            if (!response.ok) {
-                throw new Error('Failed to fetch videos');
-            }
-
-            const data = await response.json();
+            const data = await this.api.getVideosByFolder(folderName, false);
             const videos = Array.isArray(data) ? data : (data.videos || []);
 
             if (videos.length === 0) {
@@ -12991,34 +12857,25 @@ class ClipperApp {
 
                 const promises = batch.map(async (video) => {
                     try {
-                        const response = await fetch(`${this.apiBase}/api/thumbnails/generate/${video.id}`, {
-                            method: 'POST'
-                        });
+                        await this.api.generateThumbnail(video.id);
+                        completed++;
+                        console.log(`✓ Thumbnail regenerated for: ${video.name} (${completed}/${videos.length})`);
 
-                        if (response.ok) {
-                            completed++;
-                            console.log(`✓ Thumbnail regenerated for: ${video.name} (${completed}/${videos.length})`);
+                        // Update thumbnail URL with aggressive cache busting
+                        const cacheBuster = Date.now() + completed;
+                        const randomBuster = Math.random();
 
-                            // Update thumbnail URL with aggressive cache busting
-                            const cacheBuster = Date.now() + completed;
-                            const randomBuster = Math.random();
+                        // Update in memory
+                        const videoInMemory = this.allVideos.find(v => v.id === video.id);
+                        if (videoInMemory && videoInMemory.thumbnail_url) {
+                            const baseThumbnailUrl = videoInMemory.thumbnail_url.split('?')[0];
+                            videoInMemory.thumbnail_url = `${baseThumbnailUrl}?t=${cacheBuster}&bust=${randomBuster}`;
+                        }
 
-                            // Update in memory
-                            const videoInMemory = this.allVideos.find(v => v.id === video.id);
-                            if (videoInMemory && videoInMemory.thumbnail_url) {
-                                const baseThumbnailUrl = videoInMemory.thumbnail_url.split('?')[0];
-                                videoInMemory.thumbnail_url = `${baseThumbnailUrl}?t=${cacheBuster}&bust=${randomBuster}`;
-                            }
-
-                            const videoInView = this.videos.find(v => v.id === video.id);
-                            if (videoInView && videoInView.thumbnail_url) {
-                                const baseThumbnailUrl = videoInView.thumbnail_url.split('?')[0];
-                                videoInView.thumbnail_url = `${baseThumbnailUrl}?t=${cacheBuster}&bust=${randomBuster}`;
-                            }
-
-                        } else {
-                            failed++;
-                            console.error(`✗ Failed to regenerate thumbnail for: ${video.name}`);
+                        const videoInView = this.videos.find(v => v.id === video.id);
+                        if (videoInView && videoInView.thumbnail_url) {
+                            const baseThumbnailUrl = videoInView.thumbnail_url.split('?')[0];
+                            videoInView.thumbnail_url = `${baseThumbnailUrl}?t=${cacheBuster}&bust=${randomBuster}`;
                         }
                     } catch (error) {
                         failed++;
@@ -17221,16 +17078,9 @@ class ClipperApp {
     async refreshThumbnail(videoId) {
         try {
             console.log(`🖼️ Refreshing thumbnail for video ${videoId}...`);
-            console.log('Regenerating thumbnail...')
 
             // Call API to regenerate thumbnail
-            const response = await fetch(`${this.apiBase}/api/thumbnails/generate/${videoId}`, {
-                method: 'POST'
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to regenerate thumbnail');
-            }
+            await this.api.generateThumbnail(videoId);
 
             // Wait a moment for the thumbnail to be written to disk
             await new Promise(resolve => setTimeout(resolve, 500));
@@ -17414,18 +17264,9 @@ class ClipperApp {
     async loadMetadataForVideo(videoId) {
         try {
             console.log(`⚡ Loading metadata for video ${videoId}...`);
-            console.log('Loading video metadata...')
 
             // Call the metadata extraction endpoint
-            const response = await fetch(`${this.apiBase}/api/videos/${videoId}/extract-metadata`, {
-                method: 'POST'
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to extract metadata');
-            }
-
-            const data = await response.json();
+            const data = await this.api.extractMetadata(videoId);
 
             if (data.success) {
                 // Update video in both arrays with new metadata
@@ -18463,19 +18304,7 @@ class ClipperApp {
 
     async deleteVideo(videoId, videoName) {
         try {
-            const response = await fetch(`${this.apiBase}/videos/${videoId}/delete`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || `HTTP ${response.status}`);
-            }
-
-            const result = await response.json();
+            const result = await this.api.deleteVideo(videoId);
             console.log('Video moved to DELETE folder:', result);
 
             // Remove video from current view
@@ -18510,19 +18339,7 @@ class ClipperApp {
 
             console.log(`Permanently deleting "${videoName}"...`)
 
-            const response = await fetch(`${this.apiBase}/videos/${videoId}/delete-permanent`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || `HTTP ${response.status}`);
-            }
-
-            const result = await response.json();
+            const result = await this.api.deletePermanent(videoId);
             console.log('Video permanently deleted:', result);
 
             console.log(`✅ "${videoName}" permanently deleted`)
@@ -32077,28 +31894,14 @@ This action cannot be undone. Continue?`;
             console.log('🔄 Scanning edited video...')
 
             // Call backend endpoint that scans and generates thumbnail for just this video
-            const response = await fetch(`${this.apiBase}/scan/video/single`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    folder_name: folderName,
-                    filename: videoFilename
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-
-            const data = await response.json();
+            const data = await this.api.scanSingleVideo(folderName, videoFilename);
             console.log(`✅ Single video scan completed:`, data);
 
             // CRITICAL: Reload videos for THIS FOLDER ONLY to include the newly scanned video
             // Much more efficient than fetching all videos globally
             console.log(`🔄 Refreshing ${folderName} folder cache to include newly scanned video...`);
             try {
-                const folderResponse = await fetch(`${this.apiBase}/videos/${folderName}`);
-                const folderData = await folderResponse.json();
+                const folderData = await this.api.getVideosByFolder(folderName, false);
                 const folderVideos = folderData.videos || [];
 
                 // Update this.allVideos: preserve other folders, add/refresh current folder videos
@@ -32116,8 +31919,7 @@ This action cannot be undone. Continue?`;
                 console.log(`🔄 Updating current view (this.videos) for ${folderName}...`);
                 // Fetch fresh data for current folder to update this.videos
                 try {
-                    const folderResponse = await fetch(`${this.apiBase}/videos/${folderName}`);
-                    const folderData = await folderResponse.json();
+                    const folderData = await this.api.getVideosByFolder(folderName, false);
                     this.videos = folderData.videos || [];
                     console.log(`✅ Current view updated: ${this.videos.length} videos`);
 
