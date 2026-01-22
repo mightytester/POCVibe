@@ -15,6 +15,7 @@ class FaceRecognitionModule {
 
         // Face-API.js models
         this.faceApiLoaded = false;
+        this.faceApiLoading = false;
         this.faceApiModelsPath = '/models';
 
         // Detection settings
@@ -24,25 +25,46 @@ class FaceRecognitionModule {
 
     // ============ Initialization ============
 
-    async initializeFaceAPI() {
+    /**
+     * Initialize face-api.js models
+     * @param {Object} options - Optional configuration
+     * @param {Function} options.onStatus - Callback for status updates (message, isError)
+     * @returns {Promise<boolean>} True if models loaded successfully
+     */
+    async initializeFaceAPI(options = {}) {
         if (this.faceApiLoaded) return true;
+        if (this.faceApiLoading) return false; // Already loading
+
+        this.faceApiLoading = true;
+        const onStatus = options.onStatus || (() => {});
 
         try {
+            onStatus('Loading face detection models...', false);
             console.log('Loading face-api.js models...');
-            await faceapi.nets.ssdMobilenetv1.loadFromUri(this.faceApiModelsPath);
-            await faceapi.nets.faceLandmark68Net.loadFromUri(this.faceApiModelsPath);
-            await faceapi.nets.faceRecognitionNet.loadFromUri(this.faceApiModelsPath);
+
+            // Use CDN for reliable model loading
+            const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+
+            await Promise.all([
+                faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+                faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+            ]);
 
             this.detectionOptions = new faceapi.SsdMobilenetv1Options({
                 minConfidence: 0.5
             });
 
             this.faceApiLoaded = true;
-            console.log('Face-API.js models loaded successfully');
+            onStatus('Face detection ready', false);
+            console.log('✓ face-api.js models loaded successfully');
             return true;
         } catch (error) {
             console.error('Failed to load face-api.js models:', error);
+            onStatus('Failed to load face detection models', true);
             return false;
+        } finally {
+            this.faceApiLoading = false;
         }
     }
 

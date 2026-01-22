@@ -3,6 +3,18 @@ class ClipperApp {
         // Use environment-configurable API base URL
         this.apiBase = window.CLIPPER_CONFIG?.apiUrl || 'http://localhost:8000';
 
+        // Initialize core utilities (loaded from separate modules)
+        // api-client.js provides centralized API communication with error handling
+        // dom-cache.js provides DOM element caching to reduce getElementById calls
+        // settings-storage.js provides localStorage persistence for settings
+        this.api = new window.ClipperAPIClient(this.apiBase);
+        this.dom = window.DOMCache;
+        this.storage = window.SettingsStorage;
+
+        // Initialize feature modules (lazy - instantiated when first needed)
+        // face-recognition-module.js handles face detection, search, and cataloging
+        this._faceModule = null; // Lazy initialized
+
         // Multi-root configuration
         this.availableRoots = [];
         this.currentRoot = null;
@@ -125,6 +137,23 @@ class ClipperApp {
     }
 
     async init() {
+        // Validate core utilities are loaded
+        if (!this.api) {
+            console.error('❌ ClipperAPIClient not initialized - check that api-client.js is loaded before app.js');
+        } else {
+            console.log('✅ API Client initialized:', this.api.baseUrl);
+        }
+        if (!this.dom) {
+            console.error('❌ DOMCache not initialized - check that dom-cache.js is loaded before app.js');
+        } else {
+            console.log('✅ DOM Cache initialized');
+        }
+        if (!this.storage) {
+            console.error('❌ SettingsStorage not initialized - check that settings-storage.js is loaded before app.js');
+        } else {
+            console.log('✅ Settings Storage initialized');
+        }
+
         // Load settings FIRST to restore view state before any rendering
         this.loadTagUsageFromStorage();
         this.loadSettingsFromStorage(); // Restore saved settings
@@ -146,13 +175,27 @@ class ClipperApp {
         this.setupEventListeners();
     }
 
+    // Lazy getter for face recognition module
+    get faceModule() {
+        if (!this._faceModule) {
+            if (window.FaceRecognitionModule) {
+                this._faceModule = new window.FaceRecognitionModule(this);
+                console.log('✅ Face Recognition Module initialized');
+            } else {
+                console.error('❌ FaceRecognitionModule not available - check that face-recognition-module.js is loaded');
+            }
+        }
+        return this._faceModule;
+    }
+
     hideAllViews() {
         // Hide all views to prevent flash during initialization
-        const videoGrid = document.getElementById('videoGrid');
-        const folderExplorer = document.getElementById('folderExplorer');
-        const seriesView = document.getElementById('seriesView');
-        const breadcrumbNav = document.getElementById('breadcrumbNav');
-        const listViewControls = document.getElementById('listViewControls');
+        // Using DOM cache for efficient element access
+        const videoGrid = this.dom.get('videoGrid');
+        const folderExplorer = this.dom.get('folderExplorer');
+        const seriesView = this.dom.get('seriesView');
+        const breadcrumbNav = this.dom.get('breadcrumbNav');
+        const listViewControls = this.dom.get('listViewControls');
 
         if (videoGrid) videoGrid.style.display = 'none';
         if (folderExplorer) folderExplorer.style.display = 'none';
@@ -163,14 +206,14 @@ class ClipperApp {
 
     updateViewButtons() {
         // Update main view button state (only Explorer button now)
-        const explorerBtn = document.getElementById('explorerViewBtn');
+        const explorerBtn = this.dom.get('explorerViewBtn');
         if (explorerBtn) {
             explorerBtn.classList.add('active');
         }
 
         // Update menu item styles to show which view is active
-        const collectionMenuBtn = document.getElementById('menuCollectionViewBtn');
-        const seriesMenuBtn = document.getElementById('menuSeriesViewBtn');
+        const collectionMenuBtn = this.dom.get('menuCollectionViewBtn');
+        const seriesMenuBtn = this.dom.get('menuSeriesViewBtn');
 
         if (collectionMenuBtn) {
             if (this.currentView === 'list') {
@@ -191,12 +234,13 @@ class ClipperApp {
 
     async checkBackend() {
         try {
-            const response = await fetch(`${this.apiBase}/health`);
-            const data = await response.json();
+            // Use centralized API client for health check
+            const data = await this.api.healthCheck();
 
             if (data.status === 'healthy') {
-                // Hide status once connected
-                document.getElementById('status').style.display = 'none';
+                // Hide status once connected (using DOM cache)
+                const statusEl = this.dom.get('status');
+                if (statusEl) statusEl.style.display = 'none';
             } else {
                 throw new Error('Backend unhealthy');
             }
@@ -2411,27 +2455,10 @@ class ClipperApp {
          * This creates the permanent relationship that persists across refreshes
          */
         try {
-            const response = await fetch(`${this.apiBase}/api/videos/${videoId}/faces/${faceId}/link`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                // Send as Pydantic model (object with detection_method property)
-                body: JSON.stringify({ detection_method: detectionMethod })
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
-                console.error('❌ Failed to link face to video:', error);
-                console.error('Response status:', response.status);
-                console.error('Error detail:', JSON.stringify(error, null, 2));
-                return false;
-            }
-
-            const result = await response.json();
+            // Use centralized API client
+            const result = await this.api.linkFaceToVideo(videoId, faceId, detectionMethod);
             console.log(`✓ Linked face ${faceId} to video ${videoId}:`, result);
             return true;
-
         } catch (error) {
             console.error('❌ Error linking face to video:', error);
             return false;
@@ -10272,13 +10299,8 @@ class ClipperApp {
         // Increment usage count
         this.tagUsageCount[tagName] = (this.tagUsageCount[tagName] || 0) + 1;
 
-        // Persist to localStorage for cross-session intelligence
-        try {
-            localStorage.setItem('clipper_recent_tags', JSON.stringify(this.recentlyUsedTags));
-            localStorage.setItem('clipper_tag_usage', JSON.stringify(this.tagUsageCount));
-        } catch (error) {
-            console.warn('Failed to save tag usage to localStorage:', error);
-        }
+        // Persist to localStorage using storage module
+        this.storage.saveTagUsage(this.recentlyUsedTags, this.tagUsageCount);
     }
 
     // ✅ NEW: Check if a tag should be excluded from suggestions
@@ -10287,124 +10309,98 @@ class ClipperApp {
     }
 
     loadTagUsageFromStorage() {
-        try {
-            const recentTags = localStorage.getItem('clipper_recent_tags');
-            const tagUsage = localStorage.getItem('clipper_tag_usage');
-
-            if (recentTags) {
-                this.recentlyUsedTags = JSON.parse(recentTags);
-            }
-            if (tagUsage) {
-                this.tagUsageCount = JSON.parse(tagUsage);
-            }
-        } catch (error) {
-            console.warn('Failed to load tag usage from localStorage:', error);
-        }
+        // Use storage module for localStorage operations
+        const { recentTags, usageCount } = this.storage.loadTagUsage();
+        this.recentlyUsedTags = recentTags;
+        this.tagUsageCount = usageCount;
     }
 
     // ==================== SETTINGS PERSISTENCE ====================
 
     saveSettingsToStorage() {
-        try {
-            const settings = {
-                currentView: this.currentView,
-                currentSort: this.currentSort,
-                currentSearchQuery: this.currentSearchQuery,
-                currentTagFilter: this.currentTagFilter,
-                currentFolderFilter: this.currentFolderFilter,
-                verticalMode: this.verticalMode,
-                currentCategory: this.currentCategory,
-                currentSubcategory: this.currentSubcategory,
-                breadcrumb: this.breadcrumb
-            };
-            localStorage.setItem('clipper_settings', JSON.stringify(settings));
-            console.log('💾 Settings saved to localStorage');
-        } catch (error) {
-            console.warn('Failed to save settings to localStorage:', error);
-        }
+        // Collect current settings and delegate to storage module
+        const settings = {
+            currentView: this.currentView,
+            currentSort: this.currentSort,
+            currentSearchQuery: this.currentSearchQuery,
+            currentTagFilter: this.currentTagFilter,
+            currentFolderFilter: this.currentFolderFilter,
+            verticalMode: this.verticalMode,
+            currentCategory: this.currentCategory,
+            currentSubcategory: this.currentSubcategory,
+            breadcrumb: this.breadcrumb
+        };
+        this.storage.saveSettings(settings);
     }
 
     loadSettingsFromStorage() {
-        try {
-            const settingsJson = localStorage.getItem('clipper_settings');
-            if (settingsJson) {
-                const settings = JSON.parse(settingsJson);
+        // Use storage module to load settings
+        const settings = this.storage.loadSettings();
+        if (!settings) return;
 
-                // Mark that we found saved settings (not first load)
-                this.isFirstLoad = false;
+        // Mark that we found saved settings (not first load)
+        this.isFirstLoad = false;
 
-                // Restore settings
-                if (settings.currentView) {
-                    this.currentView = settings.currentView;
-                    // Update view button state immediately (before DOM is ready)
-                    // This will be set again in switchView, but helps prevent flash
-                }
-                if (settings.currentSort) {
-                    this.currentSort = settings.currentSort;
-                    const sortSelect = document.getElementById('sortSelect');
-                    if (sortSelect) {
-                        sortSelect.value = settings.currentSort;
-                    }
-                    // Update the menu sort label
-                    const sortLabel = document.getElementById('menuSortLabel');
-                    const sortNames = {
-                        'random': 'Random',
-                        'name-asc': 'Name (A-Z)',
-                        'name-desc': 'Name (Z-A)',
-                        'newest': 'Newest First',
-                        'modified': 'Recently Modified',
-                        'size-desc': 'Largest First',
-                        'duration-desc': 'Longest First'
-                    };
-                    if (sortLabel) {
-                        sortLabel.textContent = sortNames[settings.currentSort] || 'Name (A-Z)';
-                    }
-                }
-                if (settings.currentSearchQuery) {
-                    this.currentSearchQuery = settings.currentSearchQuery;
-                    const searchInput = document.getElementById('searchInput');
-                    if (searchInput) {
-                        searchInput.value = settings.currentSearchQuery;
-                    }
-                }
-                if (settings.currentTagFilter) {
-                    this.currentTagFilter = settings.currentTagFilter;
-                }
-                if (settings.currentFolderFilter && Array.isArray(settings.currentFolderFilter)) {
-                    this.currentFolderFilter = settings.currentFolderFilter;
-                }
-                if (settings.verticalMode !== undefined) {
-                    this.verticalMode = settings.verticalMode;
-                    // Apply vertical mode to the video grid
-                    const videoGrid = document.getElementById('videoGrid');
-                    if (videoGrid && this.verticalMode) {
-                        videoGrid.classList.add('vertical-mode');
-                    }
-                }
-                if (settings.currentCategory !== undefined) {
-                    this.currentCategory = settings.currentCategory;
-                }
-                if (settings.currentSubcategory !== undefined) {
-                    this.currentSubcategory = settings.currentSubcategory;
-                }
-                if (settings.breadcrumb && Array.isArray(settings.breadcrumb)) {
-                    this.breadcrumb = settings.breadcrumb;
-                }
-
-                console.log('✅ Settings restored from localStorage:', settings);
-            }
-        } catch (error) {
-            console.warn('Failed to load settings from localStorage:', error);
+        // Restore state from settings
+        if (settings.currentView) {
+            this.currentView = settings.currentView;
         }
+        if (settings.currentSort) {
+            this.currentSort = settings.currentSort;
+            // Update sort UI elements
+            const sortSelect = this.dom.get('sortSelect');
+            if (sortSelect) {
+                sortSelect.value = settings.currentSort;
+            }
+            const sortLabel = this.dom.get('menuSortLabel');
+            const sortNames = {
+                'random': 'Random',
+                'name-asc': 'Name (A-Z)',
+                'name-desc': 'Name (Z-A)',
+                'newest': 'Newest First',
+                'modified': 'Recently Modified',
+                'size-desc': 'Largest First',
+                'duration-desc': 'Longest First'
+            };
+            if (sortLabel) {
+                sortLabel.textContent = sortNames[settings.currentSort] || 'Name (A-Z)';
+            }
+        }
+        if (settings.currentSearchQuery) {
+            this.currentSearchQuery = settings.currentSearchQuery;
+            const searchInput = this.dom.get('searchInput');
+            if (searchInput) {
+                searchInput.value = settings.currentSearchQuery;
+            }
+        }
+        if (settings.currentTagFilter) {
+            this.currentTagFilter = settings.currentTagFilter;
+        }
+        if (settings.currentFolderFilter && Array.isArray(settings.currentFolderFilter)) {
+            this.currentFolderFilter = settings.currentFolderFilter;
+        }
+        if (settings.verticalMode !== undefined) {
+            this.verticalMode = settings.verticalMode;
+            const videoGrid = this.dom.get('videoGrid');
+            if (videoGrid && this.verticalMode) {
+                videoGrid.classList.add('vertical-mode');
+            }
+        }
+        if (settings.currentCategory !== undefined) {
+            this.currentCategory = settings.currentCategory;
+        }
+        if (settings.currentSubcategory !== undefined) {
+            this.currentSubcategory = settings.currentSubcategory;
+        }
+        if (settings.breadcrumb && Array.isArray(settings.breadcrumb)) {
+            this.breadcrumb = settings.breadcrumb;
+        }
+
+        console.log('✅ Settings restored:', settings);
     }
 
     clearSettingsFromStorage() {
-        try {
-            localStorage.removeItem('clipper_settings');
-            console.log('🗑️ Settings cleared from localStorage');
-        } catch (error) {
-            console.warn('Failed to clear settings from localStorage:', error);
-        }
+        this.storage.clearSettings();
     }
 
     async addTag() {
@@ -21072,42 +21068,31 @@ This action cannot be undone. Continue?`;
     // ==================== FACE RECOGNITION METHODS ====================
 
     async loadFaceApiModels() {
-        if (this.faceApiLoaded || this.faceApiLoading) {
-            return this.faceApiLoaded;
-        }
+        // Delegate to face recognition module
+        const statusEl = this.dom.get('faceExtractionStatus');
 
-        this.faceApiLoading = true;
-        const statusEl = document.getElementById('faceExtractionStatus');
+        const result = await this.faceModule.initializeFaceAPI({
+            onStatus: (message, isError) => {
+                if (statusEl) {
+                    if (isError) {
+                        statusEl.textContent = `❌ ${message}`;
+                        statusEl.className = 'face-extraction-status error';
+                    } else if (message.includes('ready')) {
+                        statusEl.textContent = `✓ ${message} - Click "Scan Video Frames" to begin`;
+                        statusEl.className = 'face-extraction-status ready';
+                    } else {
+                        statusEl.textContent = message;
+                        statusEl.className = 'face-extraction-status';
+                    }
+                }
+            }
+        });
 
-        try {
-            statusEl.textContent = 'Loading face detection models...';
-            statusEl.className = 'face-extraction-status';
+        // Sync state with module (for backward compatibility with code checking this.faceApiLoaded)
+        this.faceApiLoaded = this.faceModule.faceApiLoaded;
+        this.faceApiLoading = this.faceModule.faceApiLoading;
 
-            // Load models from CDN
-            const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
-
-            await Promise.all([
-                faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-                faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-                faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-            ]);
-
-            this.faceApiLoaded = true;
-            statusEl.textContent = '✓ Face detection ready - Click "Scan Video Frames" to begin';
-            statusEl.className = 'face-extraction-status ready';
-
-            console.log('✓ face-api.js models loaded');
-            return true;
-
-        } catch (error) {
-            console.error('Failed to load face-api.js models:', error);
-            statusEl.textContent = '❌ Failed to load face detection models';
-            statusEl.className = 'face-extraction-status error';
-            console.log('Failed to load face detection models')
-            return false;
-        } finally {
-            this.faceApiLoading = false;
-        }
+        return result;
     }
 
     async showFaceExtractionModal(video) {
