@@ -6233,24 +6233,16 @@ class ClipperApp {
             this.saveSettingsToStorage();
         });
 
-        // ESC key clears search and resets results
+        // ESC key resets to default collection view (clears search + all filters)
         searchInputEl.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 e.preventDefault();
                 e.stopPropagation();
 
-                // Clear search
-                searchInputEl.value = '';
-                this.currentSearchQuery = '';
+                // Reset to default collection view
+                this.resetCollectionView();
 
-                // Blur the input
-                searchInputEl.blur();
-
-                // Re-apply filters (will show all results since search is empty)
-                this.debouncedFilter();
-                this.saveSettingsToStorage();
-
-                console.log('🔍 Search cleared via ESC');
+                console.log('🔍 Collection view reset via ESC');
             }
         });
 
@@ -8264,6 +8256,74 @@ class ClipperApp {
         } catch (error) {
             console.log('Search failed')
         }
+    }
+
+    resetCollectionView() {
+        /**
+         * Reset collection view to default state (like first navigation)
+         * Clears search + all filters, shows all videos
+         */
+        // Clear search input
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.value = '';
+            searchInput.blur();
+        }
+        this.currentSearchQuery = '';
+
+        // Clear tag filter
+        const tagFilter = document.getElementById('tagFilter');
+        if (tagFilter) tagFilter.value = '';
+        this.currentTagFilter = '';
+
+        // Clear all metadata filters
+        const seriesFilter = document.getElementById('seriesFilter');
+        if (seriesFilter) seriesFilter.value = '';
+        this.currentSeriesFilter = '';
+
+        const yearFilter = document.getElementById('yearFilter');
+        if (yearFilter) yearFilter.value = '';
+        this.currentYearFilter = '';
+
+        const channelFilter = document.getElementById('channelFilter');
+        if (channelFilter) channelFilter.value = '';
+        this.currentChannelFilter = '';
+
+        const ratingFilter = document.getElementById('ratingFilter');
+        if (ratingFilter) ratingFilter.value = '';
+        this.currentRatingFilter = '';
+
+        const favoriteFilter = document.getElementById('favoriteFilter');
+        if (favoriteFilter) favoriteFilter.checked = false;
+        this.currentFavoriteFilter = false;
+
+        // Clear folder filter (show all folders)
+        this.currentFolderFilter = [];
+        const folderCheckboxes = document.querySelectorAll('#folderFilterList input[type="checkbox"]');
+        folderCheckboxes.forEach(cb => cb.checked = false);
+
+        // Reset sort to default (modified/newest first)
+        this.currentSort = 'modified';
+        const sortSelect = document.getElementById('sortSelect');
+        if (sortSelect) sortSelect.value = 'modified';
+
+        // Restore full collection and render
+        if (this.hasLoadedFullCollection && this.allVideosCatalog && this.allVideosCatalog.length > 0) {
+            this.allVideos = this.allVideosCatalog;
+            this.videos = this.allVideos;
+            this.resetPagination();
+            this.applySorting();
+            this.renderVideoGrid();
+            this.updateLoadMoreButton();
+        } else {
+            // If collection not loaded, trigger load
+            this.applyFilters();
+        }
+
+        // Save the reset state
+        this.saveSettingsToStorage();
+
+        console.log('🔄 Collection view reset to default');
     }
 
     async handleFiltersChanged() {
