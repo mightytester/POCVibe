@@ -11491,6 +11491,21 @@ class ClipperApp {
     // New compact explorer methods
     renderFolderContents() {
         const container = document.getElementById('folderExplorer');
+
+        // Get video count from scanStatus (which is loaded from /scan/status endpoint)
+        const scanInfo = this.scanStatus?.[this.currentCategory];
+        const videoCount = scanInfo?.video_count || 0;
+
+        console.log(`📂 renderFolderContents: category="${this.currentCategory}", videoCount=${videoCount}`);
+
+        // If folder has videos, load and show them directly
+        // This uses the /videos/{category} API endpoint which works correctly
+        if (videoCount > 0) {
+            this.loadAndShowVideosInFolder(this.currentCategory, null);
+            return; // Let loadAndShowVideosInFolder handle the rendering
+        }
+
+        // If no videos, show empty state with back button
         let html = '<div class="explorer-list">';
 
         // Add back button and refresh button
@@ -11504,31 +11519,7 @@ class ClipperApp {
             </div>
         `;
 
-        // Load folder structure for current category
-        const structure = this.folderStructure[this.currentCategory];
-
-        if (structure) {
-            // Show subfolders
-            if (structure.subfolders && Object.keys(structure.subfolders).length > 0) {
-                Object.entries(structure.subfolders).forEach(([subfolder, data]) => {
-                    const videoCount = this.getSubfolderVideoCount(data);
-                    html += `
-                        <div class="explorer-item folder-item" onclick="app.navigateToSubcategory('${this.currentCategory}', '${subfolder}')">
-                            <span class="item-icon">📁</span>
-                            <span class="item-name">${subfolder}</span>
-                            <span class="item-count">${videoCount} videos</span>
-                        </div>
-                    `;
-                });
-            }
-
-            // Show videos in current folder
-            if (structure.video_count > 0) {
-                this.loadAndShowVideosInFolder(this.currentCategory, null);
-                return; // Let loadAndShowVideosInFolder handle the rendering
-            }
-        }
-
+        html += '<div class="no-videos">No videos found in this folder</div>';
         html += '</div>';
         container.innerHTML = html;
     }
