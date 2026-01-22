@@ -47,9 +47,29 @@ def get_media_type_header(file_path: Path) -> str:
     return media_types.get(extension, 'application/octet-stream')
 
 
+@router.get("/videos")
+async def get_videos(category: str = None, media_type: str = None, db: AsyncSession = Depends(get_db)):
+    """Get all videos, optionally filtered by category."""
+    thumbnail_db = get_thumbnail_db()
+    service = VideoService(db, thumbnail_db)
+
+    if not category or category == "_all":
+        videos = await service.get_all_videos(media_type=media_type)
+    else:
+        videos = await service.get_videos_by_category(category, media_type=media_type)
+
+    video_ids = [video.id for video in videos]
+    faces_map = await service.get_faces_for_videos(video_ids)
+
+    return {
+        "videos": [serialize_video(video, faces_map) for video in videos],
+        "count": len(videos)
+    }
+
+
 @router.get("/videos/{category}")
 async def get_videos_by_category(category: str, media_type: str = None, db: AsyncSession = Depends(get_db)):
-    """Get all videos in a specific category with tags and faces from database."""
+    """Get all videos in a specific category (path parameter version)."""
     thumbnail_db = get_thumbnail_db()
     service = VideoService(db, thumbnail_db)
 
