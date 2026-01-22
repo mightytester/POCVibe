@@ -1,0 +1,16 @@
+{
+  "roots": [
+    {
+      "name": "Videos",
+      "path": "/path/to/videos",
+      "default": true,
+      "layout": "horizontal"
+    },
+    {
+      "name": "Photos",
+      "path": "/path/to/photos",
+      "layout": "vertical"
+    }
+  ],
+  "rememberLastRoot": true
+}

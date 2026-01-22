@@ -1,0 +1,2805 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Clipper - Video Manager</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="/static/config.js"></script>
+    <script>
+        // Override configuration for same-server setup
+        if (window.CLIPPER_CONFIG) {
+            window.CLIPPER_CONFIG.apiUrl = window.location.origin;
+        }
+    </script>
+    <!-- face-api.js for face detection -->
+    <script defer src="/static/face-api.min.js"></script>
+    <!-- CDN version (commented out for later use) -->
+    <!-- <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script> -->
+</head>
+
+<body>
+    <!-- In-app notification container -->
+    <div id="notification-container" class="notification-container"></div>
+
+    <div class="container">
+        <div id="status" class="status">
+            Connecting to backend...
+        </div>
+
+        <div class="controls">
+            <!-- View Toggle Buttons -->
+            <div class="view-controls">
+                <div class="view-toggle">
+                    <button id="explorerViewBtn" class="view-btn active" data-view="explorer">
+                        📁 Explorer
+                    </button>
+                </div>
+
+                <!-- Actions Menu (next to view toggle) -->
+                <div class="actions-menu-container">
+                    <button id="actionsMenuBtn" class="actions-menu-btn" title="Actions Menu">
+                        ☰
+                    </button>
+                    <div id="actionsMenu" class="actions-menu" style="display: none;">
+                        <!-- Views Section -->
+                        <div class="actions-menu-section">
+                            <div class="actions-menu-header">Views</div>
+                            <button id="menuCollectionViewBtn" class="actions-menu-item">
+                                📋 Collection
+                            </button>
+                            <button id="menuSeriesViewBtn" class="actions-menu-item">
+                                📺 Series
+                            </button>
+                        </div>
+
+                        <!-- Actions Section -->
+                        <div class="actions-menu-section">
+                            <div class="actions-menu-header">Actions</div>
+
+                            <button id="menuSortBtn" class="actions-menu-item menu-item-with-submenu">
+                                <span>📊 Sort: <span id="menuSortLabel">Name (A-Z)</span></span>
+                                <span class="submenu-arrow" id="sortSubmenuArrow">▼</span>
+                            </button>
+                            <div class="actions-submenu-inline" id="sortSubmenu" style="display: none;">
+                                <button class="actions-submenu-item" data-sort="random">🎲 Random</button>
+                                <button class="actions-submenu-item" data-sort="name-asc">📝 Name (A-Z)</button>
+                                <button class="actions-submenu-item" data-sort="name-desc">📝 Name (Z-A)</button>
+                                <button class="actions-submenu-item" data-sort="newest">🆕 Newest First</button>
+                                <button class="actions-submenu-item" data-sort="modified">⏱️ Recently Modified</button>
+                                <button class="actions-submenu-item" data-sort="size-desc">💾 Largest First</button>
+                                <button class="actions-submenu-item" data-sort="duration-desc">⏲️ Longest First</button>
+                            </div>
+                            <button id="menuSelectionModeBtn" class="actions-menu-item menu-item-with-toggle">
+                                <span class="menu-item-left">
+                                    ☑️ Multi-Select
+                                </span>
+                                <span class="menu-toggle-switch" id="menuSelectionModeToggle">
+                                    <span class="toggle-slider"></span>
+                                </span>
+                            </button>
+                            <button id="menuVerticalModeBtn" class="actions-menu-item menu-item-with-toggle">
+                                <span class="menu-item-left">
+                                    📱 Vertical Videos
+                                </span>
+                                <span class="menu-toggle-switch" id="menuVerticalModeToggle">
+                                    <span class="toggle-slider"></span>
+                                </span>
+                            </button>
+                            <button id="menuManageTagsBtn" class="actions-menu-item">
+                                🏷️ Manage Tags
+                            </button>
+                            <button id="menuFaceCatalogBtn" class="actions-menu-item">
+                                👤 Face Catalog
+                            </button>
+                            <button id="menuMergeFacesBtn" class="actions-menu-item">
+                                🔗 Merge Duplicate Faces
+                            </button>
+                            <button id="menuReviewDuplicatesBtn" class="actions-menu-item">
+                                🔍 Review Duplicates
+                            </button>
+                            <button id="menuDownloadM3U8Btn" class="actions-menu-item">
+                                📥 Download M3U8
+                            </button>
+                            <button id="menuDownloadSOCKSBtn" class="actions-menu-item">
+                                🌐 Download via SOCKS
+                            </button>
+                            <button id="menuQuickDownloadBtn" class="actions-menu-item">
+                                ⚡ Quick Download
+                            </button>
+                            <button id="menuBatchDownloadBtn" class="actions-menu-item">
+                                📥 Batch Download
+                            </button>
+                            <button id="menuClipboardDownloadBtn" class="actions-menu-item">
+                                📋 Download Clipboard
+                            </button>
+                            <button id="menuHelpBtn" class="actions-menu-item">
+                                ❓ Keyboard Shortcuts
+                            </button>
+                        </div>
+
+                        <!-- Info Section -->
+                        <div class="actions-menu-section actions-menu-info">
+                            <!-- Root Selector -->
+                            <div class="actions-menu-info-item" id="rootSelectorContainer" style="display: none;">
+                                <span class="info-label">📁 Root:</span>
+                                <select id="rootSelector" class="root-selector">
+                                    <option value="">Loading roots...</option>
+                                </select>
+                            </div>
+                            <div class="actions-menu-info-item">
+                                <span class="info-label">Mode:</span>
+                                <span id="menuModeInfo">Loading...</span>
+                            </div>
+                            <div class="actions-menu-info-item">
+                                <span class="info-label">Thumbnails:</span>
+                                <span id="menuThumbnailInfo">Loading...</span>
+                            </div>
+                            <div class="actions-menu-info-item">
+                                <span class="info-label">Library:</span>
+                                <span id="menuFingerprintInfo">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Breadcrumb Navigation (hidden by default) -->
+            <div id="breadcrumbNav" class="breadcrumb-navigation" style="display: none;">
+                <!-- Breadcrumbs will be loaded here -->
+            </div>
+
+            <div id="categories" class="categories" style="display: none;">
+                <!-- Categories will be loaded here -->
+            </div>
+
+            <!-- Search Controls for List View -->
+            <div id="listViewControls" class="search-controls">
+                <!-- Row 2: Filters -->
+                <div class="filter-row">
+                    <div id="folderFilterDropdown" class="folder-filter-dropdown">
+                        <button id="folderFilterBtn" class="folder-filter-btn">
+                            All Folders ▾
+                        </button>
+                        <div id="folderFilterMenu" class="folder-filter-menu" style="display: none;">
+                            <div class="folder-filter-header">
+                                <label class="folder-filter-item">
+                                    <input type="checkbox" id="selectAllFolders" checked>
+                                    <span>All Folders</span>
+                                </label>
+                            </div>
+                            <div class="folder-filter-divider"></div>
+                            <div id="folderFilterList" class="folder-filter-list">
+                                <!-- Folder checkboxes will be populated here -->
+                            </div>
+                        </div>
+                    </div>
+                    <select id="tagFilter" class="tag-filter">
+                        <option value="">All Tags</option>
+                    </select>
+                    <select id="seriesFilter" class="metadata-filter">
+                        <option value="">All Series</option>
+                    </select>
+                    <select id="yearFilter" class="metadata-filter">
+                        <option value="">All Years</option>
+                    </select>
+                    <select id="channelFilter" class="metadata-filter">
+                        <option value="">All Channels</option>
+                    </select>
+                    <select id="ratingFilter" class="metadata-filter">
+                        <option value="">All Ratings</option>
+                        <option value="5">★★★★★ (5 stars)</option>
+                        <option value="4">★★★★☆ (4+ stars)</option>
+                        <option value="3">★★★☆☆ (3+ stars)</option>
+                        <option value="2">★★☆☆☆ (2+ stars)</option>
+                        <option value="1">★☆☆☆☆ (1+ stars)</option>
+                    </select>
+                    <label class="favorite-filter-label">
+                        <input type="checkbox" id="favoriteFilter" class="favorite-filter-checkbox">
+                        <span class="favorite-filter-text">★ Favorites</span>
+                    </label>
+                    <button id="clearBtn" class="clear-btn">
+                        Clear
+                    </button>
+                </div>
+
+                <!-- Row 3: Search (full width) -->
+                <div class="search-row">
+                    <input type="text" id="searchInput" class="search-input"
+                        placeholder="Search all videos or tags..." />
+                </div>
+            </div>
+
+            <!-- Explorer Controls removed - use per-folder scan buttons instead -->
+        </div>
+
+        <!-- Folder Explorer View (hidden by default) -->
+        <div id="folderExplorer" class="folder-explorer" style="display: none;">
+            <!-- Folder browser will be loaded here -->
+        </div>
+
+        <!-- Series View (hidden by default) -->
+        <div id="seriesView" class="series-view" style="display: none;">
+            <!-- Series grouped view will be loaded here -->
+        </div>
+
+        <!-- Bulk Edit View (hidden by default) -->
+        <div id="bulkEditView" class="bulk-edit-view" style="display: none;">
+            <div class="bulk-edit-header">
+                <div class="bulk-edit-title-row">
+                    <h2 id="bulkEditTitle">Bulk Edit Videos</h2>
+                    <div class="bulk-edit-actions">
+                        <button id="bulkEditSaveBtn" class="bulk-edit-btn primary">💾 Save All Changes</button>
+                        <button id="bulkEditCancelBtn" class="bulk-edit-btn secondary">✖️ Cancel</button>
+                    </div>
+                </div>
+                <div class="bulk-edit-subtitle-row">
+                    <div class="bulk-edit-subtitle" id="bulkEditSubtitle">
+                        <!-- Folder name and video count will be shown here -->
+                    </div>
+                    <button id="bulkApplyToggleBtn" class="bulk-apply-toggle-btn" title="Expand bulk apply options">
+                        ⚡ Bulk Apply...
+                    </button>
+                </div>
+            </div>
+
+            <!-- Apply to All Section (Collapsible) -->
+            <div class="bulk-apply-all-section" id="bulkApplyAllSection" style="display: none;">
+                <div class="bulk-apply-all-header">
+                    <span class="bulk-apply-all-icon">⚡</span>
+                    <h3>Apply to All Videos</h3>
+                </div>
+                <div class="bulk-apply-all-grid">
+                    <div class="bulk-apply-field">
+                        <label for="applyAllChannel">Channel</label>
+                        <input type="text" id="applyAllChannel" list="channelSuggestions"
+                            placeholder="Enter channel name...">
+                    </div>
+                    <div class="bulk-apply-field">
+                        <label for="applyAllSeries">Series</label>
+                        <input type="text" id="applyAllSeries" list="seriesSuggestions"
+                            placeholder="Enter series name...">
+                    </div>
+                    <div class="bulk-apply-field">
+                        <label for="applyAllYear">Year</label>
+                        <input type="text" id="applyAllYear" list="yearSuggestions" placeholder="e.g. 2024">
+                    </div>
+                    <div class="bulk-apply-actions">
+                        <button id="applyAllBtn" class="bulk-apply-btn">
+                            ✨ Apply to All
+                        </button>
+                        <button id="clearAllBtn" class="bulk-apply-btn secondary">
+                            🗑️ Clear Fields
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bulk-edit-container">
+                <div id="bulkEditList" class="bulk-edit-list">
+                    <!-- Video edit cards will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Bulk Actions Toolbar (shown when videos are selected) -->
+        <div id="bulkActionsBar" class="bulk-actions-bar" style="display: none;">
+            <div class="bulk-actions-content">
+                <span id="selectionCount" class="selection-count">0 selected</span>
+                <div class="bulk-actions-buttons">
+                    <button id="selectAllBtn" class="bulk-action-btn">Select All</button>
+                    <button id="deselectAllBtn" class="bulk-action-btn">Deselect All</button>
+                    <button id="bulkTagBtn" class="bulk-action-btn primary">🏷️ Add Tags</button>
+                    <button id="bulkMoveBtn" class="bulk-action-btn primary">📁 Move</button>
+                    <button id="bulkEditMetadataBtn" class="bulk-action-btn primary">📝 Edit Metadata</button>
+                    <button id="bulkDeleteBtn" class="bulk-action-btn primary">🗑️ Delete</button>
+                    <button id="cancelSelectionBtn" class="bulk-action-btn secondary">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="videoGrid" class="video-grid">
+            <!-- Videos will be loaded here -->
+        </div>
+
+        <!-- Video Player Modal -->
+        <div id="videoModal" class="video-modal">
+            <div class="video-modal-content">
+                <button id="closeModal" class="close-modal">&times;</button>
+                <div class="video-player-menu-container">
+                    <button id="videoPlayerMenuBtn" class="video-player-menu-btn" title="Player Options">⋮</button>
+                    <div id="videoPlayerMenu" class="video-player-menu" style="display: none;">
+                        <button id="videoMenuFaceSearchBtn" class="video-menu-item" title="Quick Face Search">
+                            🔍 Face Search
+                        </button>
+                        <button id="videoMenuFaceBtn" class="video-menu-item" title="Toggle Face Controls">
+                            👤 Face Tools
+                        </button>
+                        <button id="videoMenuCloseBtn" class="video-menu-item" title="Close Menu">
+                            ✖️ Close
+                        </button>
+                    </div>
+                </div>
+                <h3 id="videoTitle" class="video-modal-title"></h3>
+                <div class="video-player-container">
+                    <video id="videoPlayer" class="video-player" controls preload="metadata"
+                        controlsList="nodownload noplaybackrate" disablePictureInPicture playsinline webkit-playsinline>
+                        Your browser does not support the video tag.
+                    </video>
+                    <div id="videoScanningOverlay" class="video-scanning-overlay" style="display: none;">
+                        <div class="scanning-overlay-content">
+                            <div class="scanning-spinner"></div>
+                            <div class="scanning-text">Scanning video frames...</div>
+                            <div class="scanning-progress">0/8</div>
+                        </div>
+                    </div>
+                    <!-- Mobile Face Recognition Controls -->
+                    <div id="mobileFaceControls" class="mobile-face-controls">
+                        <button id="mobilePauseBtn" class="mobile-face-btn" title="Pause/Play">
+                            <svg width="24" height="24" viewBox="0 0 512 512" fill="none" stroke="currentColor"
+                                stroke-width="32">
+                                <circle cx="256" cy="256" r="208" stroke-width="32" />
+                                <path d="M208 192v128M304 192v128" stroke-linecap="round" />
+                            </svg>
+                        </button>
+                        <button id="mobileSearchFaceBtn" class="mobile-face-btn" title="Quick Face Search (S)">
+                            <svg width="24" height="24" viewBox="0 0 512 512" fill="none" stroke="currentColor"
+                                stroke-width="32">
+                                <path d="M336 176h80M336 256h80M336 336h80" stroke-linecap="round" />
+                                <path d="M176 176h-80M176 256h-80M176 336h-80" stroke-linecap="round" />
+                            </svg>
+                        </button>
+                        <button id="mobileAutoExtractBtn" class="mobile-face-btn" title="Auto Extract Faces (A)">
+                            <svg width="24" height="24" viewBox="0 0 512 512" fill="none" stroke="currentColor"
+                                stroke-width="32">
+                                <path
+                                    d="M336 256c-20.9 35.5-56.2 56-96 56s-75.1-20.5-96-56c20.9-35.5 56.2-56 96-56s75.1 20.5 96 56z" />
+                                <circle cx="240" cy="256" r="64" />
+                                <circle cx="336" cy="256" r="64" />
+                            </svg>
+                        </button>
+                        <button id="mobileFindSimilarBtn" class="mobile-face-btn" title="Find Similar Videos">
+                            <svg width="24" height="24" viewBox="0 0 512 512" fill="none" stroke="currentColor"
+                                stroke-width="32">
+                                <rect x="128" y="128" width="336" height="336" rx="57" ry="57" />
+                                <path
+                                    d="M383.5 128l.5-24a56.2 56.2 0 00-56-56H112a64.2 64.2 0 00-64 64v216a56.2 56.2 0 0056 56h24"
+                                    stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                        </button>
+                        <button id="mobileAddFingerprintBtn" class="mobile-face-btn" title="Add Fingerprint Frame">
+                            <svg width="24" height="24" viewBox="0 0 512 512" fill="none" stroke="currentColor"
+                                stroke-width="32">
+                                <path
+                                    d="M390.42 75.28a10.45 10.45 0 01-5.32-1.44C340.72 50.08 302.35 40 256.35 40c-45.77 0-89.23 11.28-128.76 33.84C122 77 115.11 74.8 111.87 69a12.4 12.4 0 014.63-16.32A281.81 281.81 0 01256.35 16c49.23 0 92.23 11.28 139.39 36.48a12 12 0 014.63 16.32 11.94 11.94 0 01-9.95 6.48zM48.85 203.51a10.45 10.45 0 01-5.32-1.44c-4-2.24-5.61-6.56-3.37-11.28s7.56-6.24 11.84-4 5.61 6.56 3.37 11.28a10 10 0 01-6.52 5.44zM463.15 203.51c-3.2 0-6.08-2.24-7.52-5.44-2.24-4.72-.64-9.04 3.37-11.28s9.6-2.24 11.84 4 .64 9.04-3.37 11.28a10.45 10.45 0 01-4.32 1.44z"
+                                    stroke-linecap="round" />
+                                <path
+                                    d="M256.35 416c-45.77 0-89.23-11.28-128.76-33.84-4.32-2.24-5.93-6.56-3.69-11.28s7.56-6.24 11.84-4c36.48 20.16 75.84 30.24 120.61 30.24 44.45 0 84.12-10.08 120.61-30.24 4.32-2.24 9.6-.32 11.84 4s.64 9.04-3.69 11.28C345.58 404.72 302.12 416 256.35 416z"
+                                    stroke-linecap="round" />
+                            </svg>
+                        </button>
+                        <button id="mobileLoopBtn" class="mobile-face-btn" title="Toggle Loop" data-loop="off">
+                            <svg width="24" height="24" viewBox="0 0 512 512" fill="none" stroke="currentColor"
+                                stroke-width="32">
+                                <polyline points="320 120 416 120 416 216" stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                                <path d="M416 120l-80 80M192 392L96 392 96 296" stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                                <path d="M96 392l80-80" stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M416 120a176 176 0 01-152.5 244.5M96 392A176 176 0 01248.5 147.5"
+                                    fill="none" />
+                            </svg>
+                        </button>
+                    </div>
+                    <!-- Loop Button -->
+                    <button id="loopToggleBtn" class="loop-toggle-btn" title="Toggle Loop">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M17 1l4 4-4 4" />
+                            <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+                            <path d="M7 23l-4-4 4-4" />
+                            <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+                        </svg>
+                    </button>
+                </div>
+                <div id="videoControlsHint" class="video-controls-hint">
+                    <div class="controls-row">
+                        <span class="key">ESC</span> Close • <span class="key">←/→</span> ±10s • <span
+                            class="key">↑/↓</span> ±30s • <span class="key">Space</span> Play/Pause • <span
+                            class="key">L</span> Loop • <span class="key">T</span> Capture Thumbnail
+                    </div>
+                    <div class="controls-row">
+                        <span class="key">F</span> Fullscreen • <span class="key">M</span> Mute • <span
+                            class="key">S</span> Quick Face Search • <span class="key">X</span> Extract Faces • <span
+                            class="key">0</span> Start • <span class="key">End</span> End
+                    </div>
+                    <div class="controls-row" id="curationKeysHint" style="display: none;">
+                        <span class="key">D</span> Delete & Next • <span class="key">F</span> Toggle Favorite
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Curation Action Bar (moved OUTSIDE modals so it's visible for both video and image) -->
+        <div id="curationActionBar" class="curation-action-bar">
+            <button id="curationFavBtn" class="curation-btn" title="Toggle Favorite (F)">
+                ❤️ Favorite
+            </button>
+            <button id="curationTagBtn" class="curation-btn" title="Add Tags">
+                🏷️ Tag
+            </button>
+            <button id="curationDeleteBtn" class="curation-btn" title="Delete & Next (D)">
+                🗑️ Delete
+            </button>
+            <button id="curationNextBtn" class="curation-btn" title="Next Video">
+                ➤ Next
+            </button>
+            <button id="curationCloseBtn" class="curation-btn secondary" title="Close Bar">
+                ✖️
+            </button>
+        </div>
+
+        <!-- Face Search Overlay - Positioned globally so it works for both video and image viewers -->
+        <div id="faceSearchOverlay" class="face-search-overlay" style="display: none;">
+            <div class="face-search-overlay-content">
+                <div class="face-search-title">🔍 Face Search</div>
+                <div id="faceSearchOverlayText" class="face-search-text">Capturing...</div>
+                <div class="face-search-bar-container">
+                    <div id="faceSearchProgressBar" class="face-search-bar"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Image Viewer Modal - ✅ NEW -->
+        <div id="imageModal" class="image-modal">
+            <div class="image-modal-content">
+                <button id="closeImageModal" class="close-modal">&times;</button>
+                <div class="video-player-menu-container">
+                    <button id="imagePlayerMenuBtn" class="video-player-menu-btn" title="Image Options">⋮</button>
+                    <div id="imagePlayerMenu" class="video-player-menu" style="display: none;">
+                        <button id="imageMenuFaceToolsBtn" class="video-menu-item" title="Toggle Face Controls Bar">
+                            👤 Face Tools
+                        </button>
+                        <button id="imageMenuFaceBtn" class="video-menu-item" title="Quick Face Search">
+                            🔍 Face Search
+                        </button>
+                        <button id="imageMenuCloseBtn" class="video-menu-item" title="Close Menu">
+                            ✖️ Close
+                        </button>
+                    </div>
+                </div>
+                <h3 id="imageTitle" class="image-modal-title"></h3>
+                <div class="image-viewer-container">
+                    <img id="imageViewer" class="image-viewer" alt="Image">
+                    <!-- Navigation Controls -->
+                    <button id="imagePrevBtn" class="image-nav-btn image-prev-btn" title="Previous Image (←)">
+                        <span class="nav-arrow">❮</span>
+                    </button>
+                    <button id="imageNextBtn" class="image-nav-btn image-next-btn" title="Next Image (→)">
+                        <span class="nav-arrow">❯</span>
+                    </button>
+                </div>
+                <!-- Image Controls Hint -->
+                <div id="imageControlsHint" class="image-controls-hint">
+                    <div class="controls-row">
+                        <span class="key">ESC</span> Close • <span class="key">←/→</span> Previous/Next • <span
+                            class="key">F</span> Fullscreen • <span class="key">S</span> Face Search • <span
+                            class="key">T</span> Thumbnail • <span class="key">C</span> Copy
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tag Management Modal for Video Player (Desktop Fullscreen) -->
+        <div id="tagVideoPlayerModal" class="tag-modal tag-video-player-modal">
+            <div class="tag-desktop-modal-content">
+                <div class="modal-header">
+                    <h3 id="tagVideoPlayerTitle">Manage Tags</h3>
+                    <button id="closeTagVideoPlayerModal" class="close-modal">&times;</button>
+                </div>
+
+                <div class="tag-desktop-section">
+                    <h4>Available Tags (click to add):</h4>
+                    <div id="tagVideoPlayerGrid" class="tag-desktop-grid">
+                        <!-- Tags will be displayed here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tag Management Modal -->
+        <div id="tagModal" class="tag-modal">
+            <div class="tag-modal-content">
+                <div class="modal-header">
+                    <h3>Manage Tags</h3>
+                    <button id="closeTagModal" class="close-modal">&times;</button>
+                </div>
+
+                <div class="current-tags">
+                    <h4>Current Tags:</h4>
+                    <div id="currentTagsList" class="tag-list">
+                        <!-- Current tags will be displayed here -->
+                    </div>
+                </div>
+
+                <div class="tag-input-group">
+                    <input type="text" id="tagInput" class="tag-input" placeholder="Search or add new tag..." />
+                    <button id="addTagBtn" class="add-tag-submit">Add</button>
+                </div>
+
+                <div class="tag-suggestions-section">
+                    <h4>Available Tags (click to add):</h4>
+                    <div id="tagSuggestionsGrid" class="tag-suggestions-grid">
+                        <!-- Tag suggestions will be displayed here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actor Modal -->
+        <div id="actorModal" class="tag-modal">
+            <div class="tag-modal-content">
+                <div class="modal-header">
+                    <h3>Manage Actors</h3>
+                    <button id="closeActorModal" class="close-modal">&times;</button>
+                </div>
+
+                <div class="current-tags">
+                    <h4>Current Actors:</h4>
+                    <div id="currentActorsList" class="tag-list">
+                        <!-- Current actors will be displayed here -->
+                    </div>
+                </div>
+
+                <div class="tag-input-group">
+                    <input type="text" id="actorInput" class="tag-input" placeholder="Search or add new actor..." />
+                    <button id="addActorBtn" class="add-tag-submit">Add</button>
+                </div>
+
+                <div class="tag-suggestions-section">
+                    <h4>Available Actors (click to add):</h4>
+                    <div id="actorSuggestionsGrid" class="tag-suggestions-grid">
+                        <!-- Actor suggestions will be displayed here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scene Description Modal -->
+        <div id="sceneDescriptionModal" class="tag-modal">
+            <div class="tag-modal-content">
+                <div class="modal-header">
+                    <h3>Scene Description</h3>
+                    <button id="closeSceneDescriptionModal" class="close-modal">&times;</button>
+                </div>
+
+                <div class="tag-input-group">
+                    <textarea id="sceneDescriptionInput" class="tag-input scene-textarea"
+                        placeholder="Describe what happens in this scene..."
+                        style="min-height: 120px; resize: vertical;"></textarea>
+                </div>
+
+                <div class="modal-actions"
+                    style="margin-top: 15px; display: flex; gap: 10px; justify-content: flex-end;">
+                    <button onclick="app.hideSceneDescriptionModal()" class="add-tag-submit"
+                        style="background-color: #999;">Cancel</button>
+                    <button onclick="app.saveSceneDescription()" class="add-tag-submit">Save</button>
+                    <button onclick="app.saveSceneDescriptionAndMarkFinal()" class="add-tag-submit"
+                        style="background-color: #22c55e;">Save & Mark Final</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Tag Modal (optimized for quick tagging on mobile) -->
+        <div id="mobileTagModal" class="mobile-tag-modal">
+            <div class="mobile-tag-modal-content">
+                <div class="mobile-tag-header">
+                    <h3>Add Tags</h3>
+                    <button id="closeMobileTagModal" class="close-modal">&times;</button>
+                </div>
+
+                <!-- Current Tags Display -->
+                <div class="mobile-current-tags">
+                    <div id="mobileCurrentTagsList" class="mobile-tags-list">
+                        <!-- Current tags as dismissible pills -->
+                    </div>
+                </div>
+
+                <!-- All Available Tags Grid (scrollable) -->
+                <div class="mobile-tag-suggestions-section">
+                    <div id="mobileSuggestedTagsList" class="mobile-tags-grid">
+                        <!-- All tags will be displayed here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Series Info Modal -->
+        <div id="seriesModal" class="tag-modal">
+            <div class="tag-modal-content">
+                <div class="modal-header">
+                    <h3>📺 Series Information</h3>
+                    <button id="closeSeriesModal" class="close-modal">&times;</button>
+                </div>
+
+                <div class="series-form">
+                    <div class="form-field">
+                        <label for="seriesName">Series Name</label>
+                        <input type="text" id="seriesName" list="seriesSuggestions" class="series-input"
+                            placeholder="e.g., Breaking Bad">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-field">
+                            <label for="seriesSeason">Season</label>
+                            <input type="number" id="seriesSeason" class="series-input" placeholder="1" min="0"
+                                max="99">
+                        </div>
+                        <div class="form-field">
+                            <label for="seriesEpisode">Episode</label>
+                            <input type="text" id="seriesEpisode" class="series-input" placeholder="01 or E01">
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button id="saveSeriesBtn" class="series-save-btn">Save</button>
+                        <button id="clearSeriesBtn" class="series-clear-btn">Clear All</button>
+                        <button id="cancelSeriesBtn" class="series-cancel-btn">Back</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Move Video Modal for Video Player -->
+        <div id="moveVideoPlayerModal" class="tag-modal move-video-player-modal">
+            <div class="move-modal-content">
+                <div class="modal-header">
+                    <h3 id="moveVideoPlayerTitle">Move Video</h3>
+                    <button id="closeMoveVideoPlayerModal" class="close-modal">&times;</button>
+                </div>
+
+                <div class="move-folders-section">
+                    <h4>Select Folder:</h4>
+                    <div id="moveFolderGrid" class="move-folder-grid">
+                        <!-- Folder list will be displayed here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Move Video Modal (for video card button) -->
+        <div id="moveModal" class="tag-modal">
+            <div class="tag-modal-content">
+                <div class="modal-header">
+                    <h3>Move Video</h3>
+                    <button id="closeMoveModal" class="close-modal">&times;</button>
+                </div>
+
+                <div class="tag-input-group">
+                    <input type="text" id="folderInput" class="tag-input" placeholder="Type folder path..." />
+                    <button id="moveConfirmBtn" class="add-tag-submit">Move</button>
+                </div>
+
+                <div class="current-tags">
+                    <h4>Suggestions:</h4>
+                    <div id="folderSuggestionsList" class="tag-list">
+                        <!-- Folder suggestions will be displayed here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Thumbnail Generation Modal -->
+        <div id="thumbnailModal" class="thumbnail-modal">
+            <div class="thumbnail-modal-content">
+                <div class="modal-header">
+                    <h3 id="thumbnailModalTitle">Generate Custom Thumbnail</h3>
+                    <button id="closeThumbnailModal" class="close-modal">&times;</button>
+                </div>
+
+                <div class="thumbnail-preview-grid" id="thumbnailPreviewGrid">
+                    <!-- Thumbnail previews will be loaded here -->
+                </div>
+
+                <div class="thumbnail-modal-actions">
+                    <button id="cancelThumbnailBtn" class="thumbnail-modal-btn secondary">Cancel</button>
+                    <button id="setThumbnailBtn" class="thumbnail-modal-btn primary" disabled>Set Thumbnail</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rename Video Modal -->
+        <div id="renameModal" class="thumbnail-modal">
+            <div class="thumbnail-modal-content rename-modal-content">
+                <div class="modal-header">
+                    <h3 id="renameModalTitle">Edit Video Information</h3>
+                    <button id="closeRenameModal" class="close-modal">&times;</button>
+                </div>
+
+                <!-- Video Preview Header (like bulk edit) -->
+                <div id="renameVideoPreview" class="rename-video-preview">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+
+                <div class="rename-form-grid">
+                    <!-- Row 1: Favorite | Rating | Empty -->
+                    <div class="rename-field">
+                        <label for="videoFavorite">⭐ Favorite</label>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+                            <input type="checkbox" id="videoFavorite"
+                                style="width: 20px; height: 20px; cursor: pointer;">
+                            <span style="font-size: 13px; color: #666;">Mark as favorite</span>
+                        </div>
+                    </div>
+                    <div class="rename-field">
+                        <label for="videoRating">⭐ Rating</label>
+                        <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
+                            <input type="number" id="videoRating" class="rename-input" placeholder="0-5" min="0" max="5"
+                                step="0.5" style="flex: 1;">
+                            <span id="ratingStars" style="font-size: 16px; color: #ffc107;">☆☆☆☆☆</span>
+                        </div>
+                    </div>
+                    <div class="rename-field"></div>
+
+                    <!-- Row 2: Display Name | Channel | Year -->
+                    <div class="rename-field">
+                        <label for="videoDisplayName">📝 Display Name</label>
+                        <input type="text" id="videoDisplayName" class="rename-input" placeholder="User-friendly name">
+                    </div>
+                    <div class="rename-field">
+                        <label for="videoChannel">📡 Channel</label>
+                        <input type="text" id="videoChannel" list="channelSuggestions" class="rename-input"
+                            placeholder="HBO, Netflix, etc.">
+                    </div>
+                    <div class="rename-field">
+                        <label for="videoYear">📅 Year</label>
+                        <input type="number" id="videoYear" list="yearSuggestions" class="rename-input"
+                            placeholder="2023" min="1900" max="2100">
+                    </div>
+
+                    <!-- Row 3: Series | Season | Episode -->
+                    <div class="rename-field">
+                        <label for="videoSeries">📺 Series</label>
+                        <input type="text" id="videoSeries" list="seriesSuggestions" class="rename-input"
+                            placeholder="Series name">
+                    </div>
+                    <div class="rename-field">
+                        <label for="videoSeason">🎬 Season</label>
+                        <input type="number" id="videoSeason" class="rename-input" placeholder="1" min="1" max="99">
+                    </div>
+                    <div class="rename-field">
+                        <label for="videoEpisode">🔢 Episode</label>
+                        <input type="text" id="videoEpisode" class="rename-input" placeholder="E01">
+                    </div>
+
+                    <!-- Row 4: File Name (full width) with auto-format button -->
+                    <div class="rename-field rename-field-filename">
+                        <label for="newVideoName">📄 File Name</label>
+                        <div class="rename-filename-row">
+                            <input type="text" id="newVideoName" class="rename-input"
+                                placeholder="Actual filename (extension auto-preserved)">
+                            <button id="autoFormatFilenameBtn" class="rename-auto-btn"
+                                title="Auto-format: DisplayName_Season_Episode_Year_Resolution_Channel.mp4">
+                                🪄 Auto
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Row 5: Description (full width) -->
+                    <div class="rename-field rename-field-description">
+                        <label for="videoDescription">📄 Description</label>
+                        <textarea id="videoDescription" class="rename-input"
+                            placeholder="Optional description for searchability" rows="3"></textarea>
+                    </div>
+                </div>
+
+                <div class="thumbnail-modal-actions">
+                    <button id="cancelRenameBtn" class="thumbnail-modal-btn secondary">Cancel</button>
+                    <button id="confirmRenameBtn" class="thumbnail-modal-btn primary">💾 Save</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bulk Edit Metadata Modal -->
+        <div id="bulkEditModal" class="thumbnail-modal">
+            <div class="thumbnail-modal-content" style="max-width: 900px; max-height: 85vh;">
+                <div class="modal-header">
+                    <h3 id="bulkEditModalTitle">Bulk Edit Metadata (<span id="bulkEditVideoCount">0</span> videos)</h3>
+                    <button id="closeBulkEditModal" class="close-modal">&times;</button>
+                </div>
+
+                <div class="bulk-edit-form">
+                    <!-- Common Fields Section -->
+                    <div
+                        style="margin-bottom: 20px; padding: 15px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+                        <h4 style="margin: 0 0 15px 0; font-size: 15px; color: #374151; font-weight: 600;">
+                            📋 Common Fields (Applied to All Selected Videos)
+                        </h4>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                            <div>
+                                <label for="bulkSeries"
+                                    style="font-size: 13px; font-weight: 500; color: #4b5563;">Series:</label>
+                                <input type="text" id="bulkSeries" list="seriesSuggestions" class="rename-input"
+                                    placeholder="e.g., Breaking Bad" style="margin-top: 4px;">
+                            </div>
+                            <div>
+                                <label for="bulkChannel"
+                                    style="font-size: 13px; font-weight: 500; color: #4b5563;">Channel:</label>
+                                <input type="text" id="bulkChannel" list="channelSuggestions" class="rename-input"
+                                    placeholder="e.g., HBO" style="margin-top: 4px;">
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                            <div>
+                                <label for="bulkSeason"
+                                    style="font-size: 13px; font-weight: 500; color: #4b5563;">Season:</label>
+                                <input type="number" id="bulkSeason" class="rename-input" placeholder="e.g., 1" min="0"
+                                    style="margin-top: 4px;">
+                            </div>
+                            <div>
+                                <label for="bulkYear"
+                                    style="font-size: 13px; font-weight: 500; color: #4b5563;">Year:</label>
+                                <input type="number" id="bulkYear" list="yearSuggestions" class="rename-input"
+                                    placeholder="e.g., 2023" min="1900" max="2100" style="margin-top: 4px;">
+                            </div>
+                            <div>
+                                <label for="bulkRating"
+                                    style="font-size: 13px; font-weight: 500; color: #4b5563;">Rating:</label>
+                                <input type="number" id="bulkRating" class="rename-input" placeholder="0-5 stars"
+                                    min="0" max="5" step="0.5" style="margin-top: 4px;">
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 12px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="bulkFavorite"
+                                    style="width: 18px; height: 18px; cursor: pointer;">
+                                <span style="font-size: 13px; font-weight: 500; color: #4b5563;">Mark all as
+                                    favorite</span>
+                            </label>
+                        </div>
+
+                        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
+                            <small style="color: #6b7280; font-size: 12px;">
+                                💡 Leave fields empty to skip. Individual video settings below will override these
+                                common fields.
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- Individual Videos Section -->
+                    <div>
+                        <h4 style="margin: 0 0 12px 0; font-size: 15px; color: #374151; font-weight: 600;">
+                            🎬 Individual Video Settings
+                        </h4>
+
+                        <div id="bulkEditVideosList"
+                            style="max-height: 400px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; background: white;">
+                            <!-- Individual video forms will be inserted here -->
+                        </div>
+                    </div>
+
+                    <!-- Preview Section -->
+                    <div id="bulkEditPreview"
+                        style="margin-top: 20px; padding: 15px; background: #eff6ff; border-radius: 8px; border: 1px solid #bfdbfe; display: none;">
+                        <h4 style="margin: 0 0 10px 0; font-size: 14px; color: #1e40af; font-weight: 600;">
+                            👁️ Preview (Filename Changes)
+                        </h4>
+                        <div id="bulkEditPreviewList"
+                            style="font-size: 13px; color: #1e40af; max-height: 150px; overflow-y: auto;">
+                            <!-- Preview content -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="thumbnail-modal-actions">
+                    <button id="cancelBulkEditBtn" class="thumbnail-modal-btn secondary">Cancel</button>
+                    <button id="confirmBulkEditBtn" class="thumbnail-modal-btn primary">Save All</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tag Manager View (Full-Screen Master-Detail) -->
+        <div id="tagManagerView" class="manager-view" style="display: none;">
+            <!-- Header -->
+            <div class="manager-header">
+                <button id="exitTagManagerView" class="manager-exit-btn">
+                    ← Back to Collection
+                </button>
+                <h2 class="manager-title">Tag Manager</h2>
+            </div>
+
+            <!-- Main Content: Master-Detail Layout -->
+            <div class="manager-main">
+                <!-- LEFT: Tag List (40%) -->
+                <div class="manager-list-section">
+                    <div class="manager-panel-header">
+                        <h3>Tags (<span id="tagListCount">0</span>)</h3>
+                        <div class="manager-section-actions">
+                            <button id="cleanupUnusedTagsBtn" class="manager-btn-small secondary">
+                                🗑️ Cleanup Unused
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="tagListGrid" class="manager-list-grid">
+                        <div class="manager-empty-state">
+                            <p>No tags found</p>
+                            <p class="manager-empty-hint">Create tags by adding them to videos</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RIGHT: Tag Details (60%) -->
+                <div class="manager-detail-section">
+                    <div id="tagDetailEmpty" class="manager-detail-empty">
+                        <p>👈 Select a tag to view details</p>
+                    </div>
+
+                    <div id="tagDetailContent" class="manager-detail-content" style="display: none;">
+                        <div class="manager-detail-header">
+                            <div class="tag-detail-preview">
+                                <div id="tagDetailColor" class="tag-detail-color-large"></div>
+                                <h2 id="tagDetailName" class="tag-detail-name"></h2>
+                            </div>
+                        </div>
+
+                        <div class="manager-detail-body">
+                            <!-- Tag Stats -->
+                            <div class="detail-section">
+                                <h4>Usage Statistics</h4>
+                                <div class="tag-usage-bar-container">
+                                    <div id="tagUsageBar" class="tag-usage-bar"></div>
+                                    <span id="tagUsageText" class="tag-usage-text"></span>
+                                </div>
+                            </div>
+
+                            <!-- Video Grid -->
+                            <div class="detail-section">
+                                <h4>Videos with this tag (<span id="tagVideoCount">0</span>)</h4>
+                                <div id="tagVideoGrid" class="tag-video-grid">
+                                    <!-- Video thumbnails will be loaded here -->
+                                </div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="detail-section manager-detail-actions">
+                                <button id="renameTagBtn" class="manager-btn primary">
+                                    ✏️ Rename Tag
+                                </button>
+                                <button id="changeTagColorBtn" class="manager-btn secondary">
+                                    🎨 Change Color
+                                </button>
+                                <button id="deleteTagBtn" class="manager-btn danger">
+                                    🗑️ Delete Tag
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Face Extraction Modal -->
+        <div id="faceExtractionModal" class="video-modal face-extraction-modal">
+            <div class="face-extraction-content">
+                <div class="modal-header">
+                    <h3 id="faceExtractionTitle">Extract Faces from Frame</h3>
+                    <button id="closeFaceExtractionModal" class="close-modal">&times;</button>
+                </div>
+
+                <div class="face-extraction-body">
+                    <!-- Left: Frame Selection -->
+                    <div class="face-extraction-left">
+                        <div class="face-extraction-status" id="faceExtractionStatus">
+                            Loading face detection models...
+                        </div>
+
+                        <div class="frame-scan-controls">
+                            <button id="scanFramesBtn" class="thumbnail-modal-btn primary">
+                                🎬 Scan Video Frames
+                            </button>
+                            <button id="detectFacesBtn" class="thumbnail-modal-btn primary" disabled>
+                                🔍 Detect Faces in Selected (<span id="selectedFrameCount">0</span>)
+                            </button>
+                            <button id="clearFramesBtn" class="thumbnail-modal-btn secondary">
+                                🔄 Clear All
+                            </button>
+                        </div>
+
+                        <div class="frame-extraction-hint">
+                            Click "Scan Video Frames" to extract random frames. Select frames with clear faces, then
+                            detect.
+                        </div>
+
+                        <div id="frameGridContainer" class="frame-grid-container">
+                            <div class="no-frames-message">
+                                Click "Scan Video Frames" to begin.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Detected Faces -->
+                    <div class="face-extraction-right">
+                        <h4>Detected Faces:</h4>
+                        <div id="detectedFacesList" class="detected-faces-list">
+                            <div class="no-faces-message">
+                                No faces detected yet. Scan and select frames to begin.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Face Search Results Modal -->
+        <div id="faceSearchModal" class="thumbnail-modal">
+            <div class="thumbnail-modal-content" style="max-width: 700px;">
+                <div class="modal-header">
+                    <h3>Face Search Results</h3>
+                    <button id="closeFaceSearchModal" class="close-modal">&times;</button>
+                </div>
+
+                <div class="face-search-body">
+                    <div class="face-search-query">
+                        <img id="queryFaceImage" class="face-search-query-img" />
+                        <div id="queryFaceInfo" class="face-search-query-info"></div>
+                    </div>
+
+                    <div id="faceSearchResults" class="face-search-results">
+                        <!-- Search results will be displayed here -->
+                    </div>
+
+                    <div class="face-search-actions">
+                        <button id="createNewFaceBtn" class="thumbnail-modal-btn primary">
+                            ➕ Create New Face
+                        </button>
+                        <button id="cancelFaceSearchBtn" class="thumbnail-modal-btn secondary">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Auto-Scan Faces Modal -->
+        <div id="autoScanModal" class="thumbnail-modal">
+            <div class="thumbnail-modal-content auto-scan-modal-content">
+                <div class="modal-header auto-scan-header">
+                    <h3>
+                        Auto Scan Results
+                        <span id="autoScanInfoIcon" class="auto-scan-info-icon"
+                            title="Select faces (usually same person from different angles) to search and add as training samples">ℹ️</span>
+                    </h3>
+                    <button id="closeAutoScanModal" class="close-modal">&times;</button>
+                </div>
+
+                <div class="auto-scan-face-count">
+                    <span id="autoScanFaceCount">0</span> faces detected
+                </div>
+
+                <div id="autoScanFaceGrid" class="auto-scan-face-grid">
+                    <!-- Detected faces will be displayed here as checkboxes -->
+                </div>
+
+                <div class="auto-scan-actions">
+                    <div class="auto-scan-primary-actions">
+                        <button id="scanMoreFramesBtn" class="thumbnail-modal-btn secondary">
+                            Scan More
+                        </button>
+                        <button id="searchSelectedFacesBtn" class="thumbnail-modal-btn primary" disabled>
+                            Search & Add (<span id="selectedFaceCount">0</span>)
+                        </button>
+                    </div>
+                    <div class="auto-scan-secondary-actions">
+                        <button id="selectAllFacesBtn" class="thumbnail-modal-btn secondary">
+                            Select All
+                        </button>
+                        <button id="deselectAllFacesBtn" class="thumbnail-modal-btn secondary">
+                            Deselect
+                        </button>
+                        <button id="cancelAutoScanBtn" class="thumbnail-modal-btn secondary">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rename Folder Modal -->
+        <div id="renameFolderModal" class="thumbnail-modal">
+            <div class="thumbnail-modal-content" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h3>Rename Folder</h3>
+                    <button id="closeRenameFolderModal" class="close-modal">&times;</button>
+                </div>
+
+                <div style="padding: 20px 0;">
+                    <div style="margin-bottom: 20px;">
+                        <label
+                            style="font-size: 13px; font-weight: 500; color: #4b5563; display: block; margin-bottom: 8px;">
+                            Current Name:
+                        </label>
+                        <div id="currentFolderName"
+                            style="padding: 10px; background: #f3f4f6; border-radius: 6px; font-weight: 500; color: #1f2937;">
+                            <!-- Current folder name will be shown here -->
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="newFolderName"
+                            style="font-size: 13px; font-weight: 500; color: #4b5563; display: block; margin-bottom: 8px;">
+                            New Name:
+                        </label>
+                        <input type="text" id="newFolderName" class="rename-input" placeholder="Enter new folder name"
+                            style="width: 100%;">
+                        <div style="font-size: 11px; color: #6b7280; margin-top: 6px;">
+                            ⚠️ This will physically rename the folder on disk
+                        </div>
+                    </div>
+                </div>
+
+                <div class="thumbnail-modal-actions">
+                    <button id="cancelRenameFolderBtn" class="thumbnail-modal-btn secondary">Cancel</button>
+                    <button id="confirmRenameFolderBtn" class="thumbnail-modal-btn primary">💾 Rename</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bulk Hash Rename (zRename) Modal -->
+        <div id="bulkHashRenameModal" class="thumbnail-modal">
+            <div class="thumbnail-modal-content" style="max-width: 600px;">
+                <div class="modal-header">
+                    <h3>🔤 Hash-Based Bulk Rename (zRename)</h3>
+                    <button id="closeBulkHashRenameModal" class="close-modal">&times;</button>
+                </div>
+
+                <div style="padding: 20px 0;">
+                    <div id="bulkHashRenameInfo"
+                        style="margin-bottom: 20px; padding: 15px; background: #f0f4ff; border-left: 4px solid #3b82f6; border-radius: 6px;">
+                        <p style="margin: 0 0 10px 0; font-weight: 500; color: #1e40af;">
+                            ⚠️ WARNING: This operation will rename ALL videos in the folder
+                        </p>
+                        <p style="margin: 0 0 8px 0; font-size: 13px; color: #4b5563;">
+                            <strong>Folder:</strong> <span id="bulkRenameFolder"
+                                style="font-family: monospace; font-weight: 600;">—</span>
+                        </p>
+                        <p style="margin: 0 0 8px 0; font-size: 13px; color: #4b5563;">
+                            <strong>Videos to rename:</strong> <span id="bulkRenameCount"
+                                style="font-weight: 600;">—</span>
+                        </p>
+                        <p style="margin: 0; font-size: 12px; color: #6b7280;">
+                            Each file will be renamed using SHA1 hash: <code
+                                style="background: #fff; padding: 2px 6px; border-radius: 3px; font-family: monospace;">aaaabbbbccccdddd.mp4</code>
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom: 20px; padding: 15px; background: #f3f4f6; border-radius: 6px;">
+                        <p style="margin: 0 0 10px 0; font-weight: 500; font-size: 14px; color: #1f2937;">
+                            What will be updated:
+                        </p>
+                        <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #4b5563; line-height: 1.6;">
+                            <li>✓ Video filenames (using hash-based naming)</li>
+                            <li>✓ Video database records (paths)</li>
+                            <li>✓ Thumbnail mappings</li>
+                            <li>✓ Face detection data</li>
+                            <li>✓ All metadata (tags, series, actors, etc.) - preserved</li>
+                        </ul>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <label
+                            style="font-size: 13px; font-weight: 500; color: #4b5563; display: block; margin-bottom: 10px;">
+                            Type "YES" to confirm:
+                        </label>
+                        <input type="text" id="bulkRenameConfirmInput" class="rename-input"
+                            placeholder="Type YES to confirm" style="width: 100%; font-size: 16px; letter-spacing: 1px;"
+                            maxlength="3">
+                        <div id="bulkRenameConfirmError"
+                            style="font-size: 11px; color: #dc2626; margin-top: 6px; display: none;">
+                            Please type "YES" to confirm
+                        </div>
+                    </div>
+
+                    <div id="bulkRenameProgress" style="display: none; margin-bottom: 20px;">
+                        <p style="margin: 0 0 8px 0; font-size: 13px; font-weight: 500; color: #4b5563;">
+                            Renaming videos... (<span id="bulkRenameProgressCount">0</span>/<span
+                                id="bulkRenameProgressTotal">0</span>)
+                        </p>
+                        <div
+                            style="width: 100%; height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden;">
+                            <div id="bulkRenameProgressBar"
+                                style="height: 100%; background: #3b82f6; width: 0%; transition: width 0.3s ease;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="bulkRenameResults"
+                        style="display: none; max-height: 300px; overflow-y: auto; margin-bottom: 20px; padding: 15px; background: #f9fafb; border-radius: 6px; border: 1px solid #e5e7eb;">
+                        <p style="margin: 0 0 10px 0; font-weight: 500; font-size: 14px; color: #1f2937;">
+                            Rename Results:
+                        </p>
+                        <div id="bulkRenameResultsList"
+                            style="font-size: 12px; color: #4b5563; font-family: monospace; line-height: 1.6;">
+                            <!-- Results will be populated here -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="thumbnail-modal-actions">
+                    <button id="cancelBulkHashRenameBtn" class="thumbnail-modal-btn secondary">Cancel</button>
+                    <button id="confirmBulkHashRenameBtn" class="thumbnail-modal-btn primary" disabled>
+                        🔄 Rename All Videos
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- NEW: Full-Screen Face Extraction View -->
+        <div id="faceExtractionView" class="face-extraction-view" style="display: none;">
+            <!-- Header -->
+            <div class="face-extract-header">
+                <button id="exitFaceExtractionView" class="face-extract-exit-btn">
+                    ← Back to Video
+                </button>
+                <h2 id="faceExtractVideoTitle" class="face-extract-title">Face Extraction</h2>
+            </div>
+
+            <!-- Main Content: Video on Top, Work Areas Below -->
+            <div class="face-extract-main">
+                <!-- TOP: Video Player (35% height, full width) -->
+                <div class="face-extract-video-section">
+                    <div class="face-extract-panel-header">
+                        <h3>📹 Video Player (press 'S' to capture frame)</h3>
+                    </div>
+
+                    <div class="face-extract-video-container">
+                        <video id="faceExtractVideoPlayer" class="face-extract-video" controls
+                            controlsList="nodownload noplaybackrate" disablePictureInPicture playsinline
+                            webkit-playsinline style="display: none;">
+                            Your browser does not support the video tag.
+                        </video>
+                        <img id="faceExtractImagePlayer" class="face-extract-video"
+                            style="display: none; width: 100%; height: 100%; object-fit: contain; background: #1f2937;"
+                            alt="Image for face extraction" />
+                    </div>
+
+                    <div class="face-extract-video-controls">
+                        <div id="faceDetectionStatus" class="face-extract-status"></div>
+                    </div>
+                </div>
+
+                <!-- BOTTOM: Work Areas Side by Side (65% height) -->
+                <div class="face-extract-work-area">
+                    <!-- LEFT: Captured Frames (50% width) -->
+                    <div class="face-extract-frames-section">
+                        <div class="face-extract-panel-header">
+                            <div>
+                                <h3>🎬 Step 1: Select Frames (<span id="capturedFramesCount">0</span> captured, <span
+                                        id="selectedFramesCountLabel">0</span> selected)</h3>
+                            </div>
+                            <div class="face-extract-section-actions">
+                                <button id="selectAllFramesBtn" class="face-extract-btn-small secondary">Select
+                                    All</button>
+                                <button id="clearAllFramesBtn" class="face-extract-btn-small secondary">Clear
+                                    All</button>
+                            </div>
+                        </div>
+
+                        <div class="face-extract-video-controls">
+                            <button id="captureCurrentFrameBtn" class="face-extract-btn primary">
+                                📸 Capture Current Frame
+                            </button>
+                            <button id="scanRandomFramesBtn" class="face-extract-btn secondary">
+                                🎲 Scan 8 Random Frames
+                            </button>
+                            <button id="scanSequentialFramesBtn" class="face-extract-btn secondary">
+                                ▶️ Scan 8 Sequential Frames
+                            </button>
+                        </div>
+
+                        <div id="capturedFramesGrid" class="face-extract-frames-grid">
+                            <div class="face-extract-empty-state">
+                                <p>No frames captured yet</p>
+                                <p class="face-extract-empty-hint">Use the video controls above to capture frames</p>
+                            </div>
+                        </div>
+
+                        <div class="face-extract-action-bar">
+                        </div>
+                    </div>
+
+                    <!-- RIGHT: Detected Faces (50% width) -->
+                    <div class="face-extract-faces-section">
+                        <div class="face-extract-panel-header">
+                            <div>
+                                <h3>👤 Step 2: Add Faces (<span id="detectedFacesCount">0</span> detected)</h3>
+                            </div>
+                        </div>
+
+                        <div class="face-extract-action-bar">
+                            <button id="detectFacesInFramesBtn" class="face-extract-btn primary" disabled>
+                                🔍 Detect Faces in Selected Frames
+                            </button>
+                        </div>
+
+                        <div id="detectedFacesGrid" class="face-extract-faces-grid">
+                            <div class="face-extract-empty-state">
+                                <p>No faces detected yet</p>
+                                <p class="face-extract-empty-hint">Select frames on the left and click "Detect Faces"
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Face Catalog View (Single-Page Grid) -->
+        <div id="faceCatalogView" class="face-catalog-view" style="display: none;">
+            <!-- Header -->
+            <div class="face-catalog-header">
+                <button id="exitFaceCatalogView" class="face-catalog-exit-btn">
+                    ← Back to Collection
+                </button>
+                <h2 class="face-catalog-title">Face Catalog (<span id="faceListCount">0</span>)</h2>
+                <div class="face-catalog-header-buttons">
+                    <button id="faceGridViewBtn" class="face-catalog-header-btn active-view" title="Grid view">
+                        ⊞ Grid
+                    </button>
+                    <button id="faceRowViewBtn" class="face-catalog-header-btn" title="Row view with embeddings">
+                        ☰ Row
+                    </button>
+                    <button id="faceGroupSimilarBtn" class="face-catalog-header-btn" title="Group similar faces">
+                        🔗 Group Similar
+                    </button>
+                    <button id="faceCompareModeBtn" class="face-catalog-header-btn" title="Compare selected faces">
+                        📊 Compare
+                    </button>
+                    <button id="faceMergeModeBtn" class="face-merge-mode-btn">
+                        🔀 Merge Mode
+                    </button>
+                </div>
+            </div>
+
+            <!-- Main Grid Area -->
+            <div id="faceListGrid" class="face-catalog-grid">
+                <div class="face-catalog-empty">
+                    <p>No faces in catalog yet</p>
+                    <p class="face-catalog-empty-hint">Press 'X' while watching videos to extract faces</p>
+                </div>
+            </div>
+
+            <!-- Main Row Area -->
+            <div id="faceListRows" class="face-catalog-rows" style="display: none;">
+                <div class="face-catalog-empty">
+                    <p>No faces in catalog yet</p>
+                    <p class="face-catalog-empty-hint">Press 'X' while watching videos to extract faces</p>
+                </div>
+            </div>
+
+            <!-- Compare Action Bar (shown when comparing faces) -->
+            <div id="faceCompareActionBar" class="face-compare-action-bar" style="display: none;">
+                <div class="face-compare-bar-content">
+                    <span id="faceCompareCount" class="face-compare-count">0 selected</span>
+                    <div class="face-compare-actions">
+                        <button id="calculateSimilarityBtn" class="face-compare-action-btn primary">
+                            📊 Calculate Similarity
+                        </button>
+                        <button id="cancelCompareBtn" class="face-compare-action-btn secondary">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Merge Action Bar (shown when faces selected) -->
+            <div id="faceMergeActionBar" class="face-merge-action-bar" style="display: none;">
+                <div class="face-merge-bar-content">
+                    <span id="faceMergeCount" class="face-merge-count">0 selected</span>
+                    <div class="face-merge-actions">
+                        <button id="confirmMergeBtn" class="face-merge-action-btn primary">
+                            🔀 Merge Selected
+                        </button>
+                        <button id="cancelMergeBtn" class="face-merge-action-btn secondary">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Face Grouping View (Full-Screen) -->
+        <div id="faceGroupingView" class="face-grouping-view" style="display: none;">
+            <!-- Header -->
+            <div class="face-grouping-header">
+                <button id="exitFaceGroupingView" class="face-grouping-exit-btn">
+                    ← Back to Catalog
+                </button>
+                <h2 class="face-grouping-title">Similar Faces Groups</h2>
+                <div class="face-grouping-header-info">
+                    <span id="faceGroupingStats">Loading...</span>
+                </div>
+            </div>
+
+            <!-- Main Content Area -->
+            <div id="faceGroupingContent" class="face-grouping-content">
+                <!-- Groups will be loaded here -->
+            </div>
+
+            <!-- Group Merge Action Bar (shown when faces selected) -->
+            <div id="faceGroupMergeActionBar" class="face-group-merge-action-bar" style="display: none;">
+                <div class="face-group-merge-bar-content">
+                    <span id="faceGroupMergeCount" class="face-group-merge-count">0 selected</span>
+                    <div class="face-group-merge-actions">
+                        <button id="groupConfirmMergeBtn" class="face-group-merge-action-btn primary">
+                            🔀 Merge Selected
+                        </button>
+                        <button id="groupCancelMergeBtn" class="face-group-merge-action-btn secondary">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Duplicates Review View (Full-Screen) -->
+        <div id="duplicatesReviewView" class="duplicates-review-view" style="display: none;">
+            <!-- Header -->
+            <div class="duplicates-review-header">
+                <button id="exitDuplicatesReviewView" class="duplicates-review-exit-btn">
+                    ← Back to Collection
+                </button>
+                <h2 class="duplicates-review-title">Review Duplicates (<span id="duplicatesReviewCount">0 groups</span>)
+                </h2>
+            </div>
+
+            <!-- Main Content Area -->
+            <div id="duplicatesReviewContent" class="duplicates-review-content">
+                <!-- Duplicate groups will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Pro Video Editor (Inspired by VideoClip Reference) -->
+        <div id="proVideoEditor" class="pro-video-editor" style="display: none;">
+            <!-- Header -->
+            <div class="pro-editor-header">
+                <!-- Main Controls Row -->
+                <div class="pro-header-controls">
+                    <!-- Left Section: Back button + Compact Title -->
+                    <div class="pro-header-left">
+                        <button id="exitProEditor" class="pro-editor-exit-btn">← Back</button>
+                        <span class="pro-editor-title-compact">✂️ Editor</span>
+                    </div>
+
+                    <!-- Center Section: Video Metadata -->
+                    <div id="proVideoMetadata" class="pro-video-metadata">
+                        <span class="pro-meta-item" id="proMetaDuration">⏱️ --:--</span>
+                        <span class="pro-meta-item" id="proMetaResolution">📺 ----x----</span>
+                        <span class="pro-meta-item" id="proMetaSize">💾 --- MB</span>
+                    </div>
+
+                    <!-- Right Section: Shortcuts Toggle + Progress + Legacy Button -->
+                    <div class="pro-header-right">
+                        <!-- Keyboard Shortcuts Toggle Button -->
+                        <button id="toggleShortcutsBtn" class="pro-shortcuts-toggle-btn"
+                            title="Show/Hide Keyboard Shortcuts">
+                            ⌨️ Keys <span class="toggle-arrow">▼</span>
+                        </button>
+
+                        <!-- Compact Progress Indicator (shown when processing) -->
+                        <div id="proEditorNotifications" class="pro-editor-notifications-compact"
+                            style="display: none;">
+                            <span class="notification-icon-compact">🔄</span>
+                            <div class="notification-content-compact">
+                                <span class="notification-text-compact">Processing...</span>
+                                <div class="notification-progress-compact">
+                                    <div class="progress-bar-compact">
+                                        <div class="progress-fill-compact" style="width: 0%;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="notification-actions-compact" style="display: none;">
+                                <button class="notification-btn-compact btn-delete-source"
+                                    title="Delete Source Video">🗑️</button>
+                                <button class="notification-btn-compact btn-open-folder" title="Open Folder">📁</button>
+                                <button class="notification-btn-compact btn-dismiss" title="Dismiss">✕</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Collapsible Shortcuts Panel -->
+                <div id="proShortcutsPanel" class="pro-shortcuts-panel" style="display: none;">
+                    <div class="pro-shortcuts-content">
+                        <div class="pro-shortcuts-row">
+                            <span class="shortcut-item"><kbd>Space</kbd> Play/Pause</span>
+                            <span class="shortcut-item"><kbd>←</kbd><kbd>→</kbd> ±10s</span>
+                            <span class="shortcut-item"><kbd>↑</kbd><kbd>↓</kbd> ±30s</span>
+                            <span class="shortcut-item"><kbd>Shift</kbd>+<kbd>←</kbd><kbd>→</kbd> ±1s</span>
+                            <span class="shortcut-item"><kbd>Ctrl</kbd>+<kbd>←</kbd><kbd>→</kbd> ±5s</span>
+                        </div>
+                        <div class="pro-shortcuts-row">
+                            <span class="shortcut-item"><kbd>,</kbd><kbd>.</kbd> Frame by Frame</span>
+                            <span class="shortcut-item"><kbd>I</kbd>/<kbd>O</kbd> Set Start/End</span>
+                            <span class="shortcut-item"><kbd>C</kbd> Toggle Crop</span>
+                            <span class="shortcut-item"><kbd>Enter</kbd> Process</span>
+                            <span class="shortcut-item"><kbd>Esc</kbd> Exit</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="pro-editor-content">
+                <!-- Video Player with Crop Overlay -->
+                <div class="pro-video-container">
+                    <div class="pro-video-wrapper">
+                        <video id="proEditorVideo" class="pro-video" preload="auto" playsinline
+                            webkit-playsinline></video>
+
+                        <!-- Loading Indicator -->
+                        <div id="proEditorLoading" class="pro-editor-loading" style="display: none;">
+                            <div class="pro-loading-spinner"></div>
+                            <div class="pro-loading-text">Loading video...</div>
+                        </div>
+
+                        <!-- Crop Overlay (shown in Cut & Crop mode) -->
+                        <div id="proCropOverlay" class="pro-crop-overlay" style="display: none;">
+                            <!-- Dark overlays for non-cropped areas -->
+                            <div class="pro-crop-mask pro-mask-top"></div>
+                            <div class="pro-crop-mask pro-mask-right"></div>
+                            <div class="pro-crop-mask pro-mask-bottom"></div>
+                            <div class="pro-crop-mask pro-mask-left"></div>
+
+                            <!-- Crop Box (draggable) -->
+                            <div id="proCropBox" class="pro-crop-box">
+                                <!-- Corner handles -->
+                                <div class="pro-crop-handle pro-handle-tl"></div>
+                                <div class="pro-crop-handle pro-handle-tr"></div>
+                                <div class="pro-crop-handle pro-handle-bl"></div>
+                                <div class="pro-crop-handle pro-handle-br"></div>
+
+                                <!-- Middle handles -->
+                                <div class="pro-crop-handle pro-handle-t"></div>
+                                <div class="pro-crop-handle pro-handle-b"></div>
+                                <div class="pro-crop-handle pro-handle-l"></div>
+                                <div class="pro-crop-handle pro-handle-r"></div>
+
+                                <div class="pro-crop-info">
+                                    <div class="pro-crop-dimensions" id="proCropDimensions">1920x1080 (16:9)</div>
+                                    <button class="pro-aspect-lock-btn locked" id="proAspectLockBtn"
+                                        title="Unlock aspect ratio">🔒</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Play/Pause Button -->
+                    <button id="proPlayPauseBtn" class="pro-play-pause-btn">▶</button>
+
+                    <!-- Precision & Frame Controls -->
+                    <div class="pro-playback-controls">
+                        <div class="pro-control-group">
+                            <button id="proJumpStartBtn" class="pro-ctrl-btn"
+                                title="Jump to Start (In Point)">⏮️</button>
+                            <button id="proPrevSecBtn" class="pro-ctrl-btn" title="Back 1s (Shift+Left)">⏪</button>
+                            <button id="proPrevFrameBtn" class="pro-ctrl-btn" title="Previous Frame (,)">◀️</button>
+                        </div>
+
+                        <div class="pro-control-group">
+                            <button id="proSetInBtn" class="pro-ctrl-btn highlight" title="Set In Point (I)">[
+                                IN</button>
+                            <button id="proSetOutBtn" class="pro-ctrl-btn highlight" title="Set Out Point (O)">OUT
+                                ]</button>
+                        </div>
+
+                        <div class="pro-control-group">
+                            <button id="proNextFrameBtn" class="pro-ctrl-btn" title="Next Frame (.)">▶️</button>
+                            <button id="proNextSecBtn" class="pro-ctrl-btn" title="Forward 1s (Shift+Right)">⏩</button>
+                            <button id="proJumpEndBtn" class="pro-ctrl-btn" title="Jump to End (Out Point)">⏭️</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Timeline with Visual Range Selection -->
+                <div class="pro-timeline-container">
+                    <div class="pro-timeline-wrapper">
+                        <!-- Timeline background with thumbnails (future enhancement) -->
+                        <div class="pro-timeline-track" id="proTimelineTrack">
+                            <!-- Excluded range (before start) -->
+                            <div class="pro-timeline-excluded pro-excluded-start" id="proExcludedStart"></div>
+
+                            <!-- Selected range (visible) -->
+                            <div class="pro-timeline-selected" id="proTimelineSelected"></div>
+
+                            <!-- Excluded range (after end) -->
+                            <div class="pro-timeline-excluded pro-excluded-end" id="proExcludedEnd"></div>
+
+                            <!-- Draggable handles -->
+                            <div class="pro-timeline-handle pro-handle-start" id="proHandleStart">
+                                <div class="pro-handle-line"></div>
+                                <div class="pro-handle-time" id="proHandleStartTime">00:00</div>
+                            </div>
+                            <div class="pro-timeline-handle pro-handle-end" id="proHandleEnd">
+                                <div class="pro-handle-line"></div>
+                                <div class="pro-handle-time" id="proHandleEndTime">00:00</div>
+                            </div>
+
+                            <!-- Current position indicator -->
+                            <div class="pro-timeline-cursor" id="proTimelineCursor"></div>
+
+                            <!-- Time tooltip (appears on hover/drag) -->
+                            <div class="pro-timeline-tooltip" id="proTimelineTooltip">00:00</div>
+                        </div>
+                    </div>
+
+                    <!-- Selection Duration Display -->
+                    <div class="pro-selection-info" id="proSelectionInfo">
+                        <button id="proResetTimelineBtn" class="pro-reset-timeline-btn" title="Reset to full video">🔄
+                            Reset</button>
+                        <span class="pro-selection-duration">Selected: <strong id="proSelectionDuration">0:00</strong> /
+                            <span id="proSelectionTotal">0:00</span></span>
+                        <span class="pro-selection-percentage">(<span id="proSelectionPercent">100</span>%)</span>
+                    </div>
+                </div>
+
+                <!-- Controls Row -->
+                <div class="pro-controls-row">
+                    <!-- Operation Mode -->
+                    <div class="pro-mode-selector">
+                        <button id="proCutModeBtn" class="pro-mode-btn active" data-mode="cut">
+                            <span class="btn-text-full">✂️ Cut Only</span>
+                            <span class="btn-text-mobile">✂️</span>
+                        </button>
+                        <button id="proCutCropModeBtn" class="pro-mode-btn" data-mode="cut_crop">
+                            <span class="btn-text-full">✂️🎨 Cut & Crop</span>
+                            <span class="btn-text-mobile">✂️🎨</span>
+                        </button>
+                    </div>
+
+                    <!-- Crop Presets (shown in Cut & Crop mode) -->
+                    <div id="proCropPresets" class="pro-crop-presets" style="display: none;">
+                        <button class="pro-preset-btn active" data-preset="9:16">9:16</button>
+                        <button class="pro-preset-btn" data-preset="16:9">16:9</button>
+                        <button class="pro-preset-btn" data-preset="1:1">1:1</button>
+                        <button class="pro-preset-btn" data-preset="4:5">4:5</button>
+                        <button class="pro-preset-btn" data-preset="2:3">2:3</button>
+                        <button class="pro-preset-btn" data-preset="3:4">3:4</button>
+                        <button class="pro-preset-btn" data-preset="21:9">21:9</button>
+                        <button class="pro-preset-btn" data-preset="4:3">4:3</button>
+                        <button class="pro-preset-btn" data-preset="custom">
+                            <span class="preset-text-full">Custom</span>
+                            <span class="preset-text-mobile">✏️</span>
+                        </button>
+                    </div>
+
+                    <!-- Process Button -->
+                    <button id="proProcessBtn" class="pro-process-btn">🚀 Process Video</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Video Processing Modal (Mobile-friendly) -->
+        <div id="videoProcessingModal" class="thumbnail-modal" style="display: none;">
+            <div class="thumbnail-modal-content" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h3 style="display: flex; align-items: center; gap: 8px; margin: 0;">
+                        <span class="processing-spinner"
+                            style="display: inline-block; width: 24px; height: 24px; border: 3px solid #e5e7eb; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite;"></span>
+                        <span id="processingModalTitle">Processing Video...</span>
+                    </h3>
+                </div>
+
+                <div class="processing-modal-body" style="padding: 20px 0;">
+                    <!-- Video Info -->
+                    <div id="processingVideoInfo"
+                        style="background: #f9fafb; padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+                        <div style="font-size: 11px; color: #6b7280; margin-bottom: 4px;">VIDEO</div>
+                        <div id="processingVideoName"
+                            style="font-size: 14px; font-weight: 600; color: #111827; word-break: break-word;"></div>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div style="margin-bottom: 16px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <span style="font-size: 13px; font-weight: 600; color: #374151;">Progress</span>
+                            <span id="processingProgress"
+                                style="font-size: 13px; font-weight: 600; color: #3b82f6;">0%</span>
+                        </div>
+                        <div
+                            style="width: 100%; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden;">
+                            <div id="processingProgressBar"
+                                style="width: 0%; height: 100%; background: linear-gradient(90deg, #3b82f6, #2563eb); transition: width 0.3s ease;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Status Message -->
+                    <div id="processingStatus"
+                        style="text-align: center; color: #6b7280; font-size: 13px; padding: 8px;">
+                        Starting video processing...
+                    </div>
+
+                    <!-- Action Buttons (shown when complete) -->
+                    <div id="processingActions"
+                        style="display: none; margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button id="processingDeleteSource" class="thumbnail-modal-btn secondary"
+                            style="flex: 1; min-width: 120px;">
+                            🗑️ Delete Source
+                        </button>
+                        <button id="processingOpenFolder" class="thumbnail-modal-btn secondary"
+                            style="flex: 1; min-width: 120px;">
+                            📁 Open Folder
+                        </button>
+                        <button id="processingDismiss" class="thumbnail-modal-btn primary"
+                            style="flex: 1; min-width: 120px;">
+                            ✓ Done
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Face Detail Modal -->
+        <div id="faceDetailModal" class="thumbnail-modal">
+            <div class="thumbnail-modal-content face-detail-modal-content" style="max-width: 1000px;">
+                <div class="modal-header">
+                    <h3 id="faceDetailModalTitle">Face Details</h3>
+                    <button id="closeFaceDetailModal" class="close-modal">&times;</button>
+                </div>
+
+                <!-- Face Header -->
+                <div class="face-detail-modal-header">
+                    <img id="faceDetailThumbnail" class="face-detail-thumbnail-large" />
+                    <div class="face-detail-info">
+                        <h2 id="faceDetailName" class="face-detail-name"></h2>
+                        <div id="faceDetailStats" class="face-detail-stats"></div>
+                        <div id="faceDetailActor" class="face-detail-actor"></div>
+                        <button id="reviewSimilarEncodingsBtn"
+                            style="display: none; margin-top: 8px; padding: 6px 12px; background: #fbbf24; color: #78350f; border: 1px solid #f59e0b; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;">⚠️
+                            Similar Encodings</button>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="thumbnail-modal-actions">
+                    <button id="cleanupEncodingsBtn" class="thumbnail-modal-btn secondary">
+                        🧹 Cleanup Embeddings
+                    </button>
+                    <button id="renameFaceBtn" class="thumbnail-modal-btn primary">
+                        ✏️ Rename
+                    </button>
+                    <button id="findDuplicateFacesBtn" class="thumbnail-modal-btn secondary">
+                        🔍 Find Duplicates
+                    </button>
+                    <button id="linkFaceActorBtn" class="thumbnail-modal-btn secondary">
+                        🔗 Link to Actor
+                    </button>
+                    <button id="mergeFaceBtn" class="thumbnail-modal-btn secondary">
+                        🔀 Merge
+                    </button>
+                    <button id="deleteFaceBtn" class="thumbnail-modal-btn danger">
+                        🗑️ Delete
+                    </button>
+                    <button id="closeFaceDetailBtn" class="thumbnail-modal-btn secondary">
+                        ✕ Close
+                    </button>
+                </div>
+
+                <!-- Encoding Gallery -->
+                <div class="face-detail-modal-section">
+                    <h4>All Encodings (<span id="faceEncodingCount">0</span>)</h4>
+                    <div id="faceEncodingGallery" class="face-encoding-gallery">
+                        <!-- Face encodings will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Media Sources (Videos & Images unified) -->
+                <div class="face-detail-modal-section">
+                    <h4>Media (<span id="faceMediaCount">0</span>)</h4>
+                    <div id="faceMediaList" class="face-media-list">
+                        <!-- Videos and images will be loaded here in unified grid -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cleanup Embeddings Modal -->
+        <div id="cleanupEmbeddingsModal" class="thumbnail-modal" style="display: none;">
+            <div class="thumbnail-modal-content" style="max-width: 800px;">
+                <div class="modal-header">
+                    <h3>Cleanup Low-Quality Embeddings</h3>
+                    <button id="closeCleanupModal" class="close-modal">&times;</button>
+                </div>
+
+                <div style="padding: 20px;">
+                    <div id="cleanupResults" style="max-height: 400px; overflow-y: auto; margin-bottom: 20px;">
+                        <!-- Low quality embeddings will be listed here -->
+                    </div>
+
+                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                        <button id="cancelCleanupBtn" class="thumbnail-modal-btn secondary">Cancel</button>
+                        <button id="confirmDeleteBadBtn" class="thumbnail-modal-btn danger">Delete Selected</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Face Merge Modal -->
+    <div id="faceMergeModal" class="thumbnail-modal">
+        <div class="thumbnail-modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>🔀 Merge Faces</h3>
+                <button id="closeFaceMergeModal" class="close-modal">&times;</button>
+            </div>
+
+            <p style="margin-bottom: 20px; color: #6b7280; font-size: 14px;">
+                Select which face should be the primary (keep this one). All encodings and video links from other faces
+                will be merged into it.
+            </p>
+
+            <div id="faceMergeOptions" style="display: flex; flex-direction: column; gap: 12px;">
+                <!-- Face options will be populated here -->
+            </div>
+
+            <div class="thumbnail-modal-actions">
+                <button id="cancelFaceMergeBtn" class="thumbnail-modal-btn secondary">Cancel</button>
+                <button id="confirmFaceMergeBtn" class="thumbnail-modal-btn primary">Merge Selected Faces</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Face Comparison Modal -->
+    <div id="faceComparisonModal" class="thumbnail-modal" style="display: none;">
+        <div class="thumbnail-modal-content" style="max-width: 1200px;">
+            <div class="modal-header">
+                <h3>📊 Face Similarity Comparison</h3>
+                <button id="closeFaceComparisonModal" class="close-modal">&times;</button>
+            </div>
+
+            <div id="faceComparisonContent" style="padding: 20px;">
+                <!-- Comparison results will be populated here -->
+            </div>
+
+            <div class="thumbnail-modal-actions">
+                <button id="closeFaceComparisonBtn" class="thumbnail-modal-btn secondary">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Datalists for autocomplete (invisible, provides suggestions) -->
+    <datalist id="channelSuggestions">
+        <!-- Channel suggestions will be populated by JavaScript -->
+    </datalist>
+
+    <datalist id="seriesSuggestions">
+        <!-- Series suggestions will be populated by JavaScript -->
+    </datalist>
+
+    <datalist id="yearSuggestions">
+        <!-- Year suggestions will be populated by JavaScript -->
+    </datalist>
+
+    <!-- Top Progress Bar (for background tasks) -->
+    <div id="topProgressBar" class="top-progress-bar" style="display: none;">
+        <div class="top-progress-content">
+            <div class="top-progress-text">
+                <span id="topProgressIcon">🆔</span>
+                <span id="topProgressLabel">Fingerprinting videos...</span>
+                <span id="topProgressCount">3/10</span>
+            </div>
+            <div class="top-progress-bar-fill-container">
+                <div id="topProgressBarFill" class="top-progress-bar-fill" style="width: 30%;"></div>
+            </div>
+        </div>
+        <button id="topProgressClose" class="top-progress-close" title="Cancel">×</button>
+    </div>
+
+    <!-- Fingerprint Viewer Modal -->
+    <div id="fingerprintViewerModal" class="thumbnail-modal">
+        <div class="thumbnail-modal-content" style="max-width: 1000px; max-height: 85vh;">
+            <div class="modal-header">
+                <h3 id="fingerprintViewerTitle">🆔 Fingerprint Frames</h3>
+                <button id="closeFingerprintViewerModal" class="close-modal">&times;</button>
+            </div>
+
+            <div class="fingerprint-viewer-info">
+                <div class="fingerprint-info-row">
+                    <span id="fingerprintVideoName" class="fingerprint-video-name">Loading...</span>
+                    <span id="fingerprintFrameCount" class="fingerprint-frame-count"></span>
+                </div>
+                <div class="fingerprint-info-help">
+                    💡 Tip: These frames are used for duplicate detection. You can delete frames that don't represent
+                    the video well, or add new frames during playback (press 'Shift+F' key).
+                </div>
+            </div>
+
+            <div id="fingerprintFramesGrid" class="fingerprint-frames-grid">
+                <!-- Fingerprint frames will be loaded here -->
+            </div>
+
+            <div class="thumbnail-modal-actions">
+                <button id="addMoreFingerprintsBtn" class="thumbnail-modal-btn primary">
+                    ➕ Add More Frames
+                </button>
+                <button id="closeFingerprintViewerBtn" class="thumbnail-modal-btn secondary">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Interactive Fingerprint Generation Modal -->
+    <div id="fingerprintGenerationModal" class="thumbnail-modal">
+        <div class="thumbnail-modal-content" style="max-width: 1200px; max-height: 90vh;">
+            <div class="modal-header">
+                <h3>🆔 Generate Fingerprint Frames</h3>
+                <button id="closeFingerprintGenerationModal" class="close-modal">&times;</button>
+            </div>
+
+            <!-- Video Info -->
+            <div class="fingerprint-viewer-info" style="margin-bottom: 16px;">
+                <div class="fingerprint-info-row">
+                    <span id="fpGenVideoName" class="fingerprint-video-name">Loading...</span>
+                    <span id="fpGenFrameCount" class="fingerprint-frame-count">0 frames selected</span>
+                </div>
+                <div class="fingerprint-info-help">
+                    💡 Generate random frames from the video, select the ones you want, and add them to fingerprints for
+                    duplicate detection.
+                </div>
+            </div>
+
+            <!-- Generate Controls -->
+            <div style="margin-bottom: 20px; display: flex; gap: 12px; align-items: center;">
+                <button id="fpGenGenerateBtn" class="thumbnail-modal-btn primary">
+                    🎲 Generate 10 Random Frames
+                </button>
+                <button id="fpGenSelectAllBtn" class="thumbnail-modal-btn secondary">
+                    ☑️ Select All
+                </button>
+                <button id="fpGenDeselectAllBtn" class="thumbnail-modal-btn secondary">
+                    ◻️ Deselect All
+                </button>
+                <div id="fpGenStatus" style="margin-left: auto; color: #6b7280; font-size: 14px;"></div>
+            </div>
+
+            <!-- Frames Grid -->
+            <div id="fpGenFramesGrid" class="fingerprint-frames-grid"
+                style="max-height: 500px; overflow-y: auto; margin-bottom: 20px;">
+                <div style="text-align: center; padding: 60px 20px; color: #9ca3af;">
+                    <p style="font-size: 18px; margin: 0;">Click "Generate Random Frames" to get started</p>
+                    <p style="font-size: 14px; color: #d1d5db; margin-top: 8px;">Select the frames you want to add as
+                        fingerprints</p>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="thumbnail-modal-actions" style="border-top: 1px solid #e5e7eb; padding-top: 20px;">
+                <button id="fpGenCancelBtn" class="thumbnail-modal-btn secondary">Cancel</button>
+                <button id="fpGenAddSelectedBtn" class="thumbnail-modal-btn primary" disabled>
+                    ➕ Add Selected Frames (<span id="fpGenSelectedCount">0</span>)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmModal" class="thumbnail-modal">
+        <div class="thumbnail-modal-content" style="max-width: 520px;">
+            <div class="modal-header"
+                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3 id="confirmModalTitle" style="margin: 0;">⚠️ Confirm Action</h3>
+                <button id="confirmModalClose" class="close-modal"
+                    style="background: none; border: none; font-size: 24px; color: #6b7280; cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 4px; transition: all 0.2s;">&times;</button>
+            </div>
+            <div style="padding: 0;">
+                <p id="confirmModalMessage" style="font-size: 15px; color: #374151; line-height: 1.6; margin: 0;">
+                    Are you sure?
+                </p>
+            </div>
+            <div class="thumbnail-modal-actions"
+                style="border-top: 1px solid #e5e7eb; padding-top: 20px; margin-top: 20px;">
+                <button id="confirmModalCancel" class="thumbnail-modal-btn secondary">Cancel</button>
+                <button id="confirmModalConfirm" class="thumbnail-modal-btn danger">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Similar Videos Modal (Single Video Duplicate Check) -->
+    <div id="similarVideosModal" class="thumbnail-modal">
+        <div class="thumbnail-modal-content" style="max-width: 1100px; max-height: 90vh;">
+            <div class="modal-header">
+                <h3 id="similarVideosModalTitle">🔍 Similar Videos</h3>
+                <button id="closeSimilarVideosModal" class="close-modal">&times;</button>
+            </div>
+
+            <!-- Duplicate Group Style Container -->
+            <div id="similarVideosGroupContainer" class="similar-videos-group-container">
+                <!-- This will be populated with duplicate-group-section structure by JavaScript -->
+            </div>
+
+            <div class="thumbnail-modal-actions">
+                <button id="closeSimilarVideosModalBtn" class="thumbnail-modal-btn secondary">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- M3U8 Download Modal -->
+    <div id="downloadM3U8Modal" class="tag-modal">
+        <div class="tag-modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>📥 Download M3U8 Video Clip</h3>
+                <button id="closeDownloadM3U8Modal" class="close-modal">&times;</button>
+            </div>
+
+            <div class="download-form">
+                <div class="form-group">
+                    <label for="m3u8Url">M3U8 URL *</label>
+                    <input type="text" id="m3u8Url" class="tag-input" placeholder="https://example.com/video.m3u8"
+                        style="width: 100%;" />
+                </div>
+
+                <div class="form-row" style="display: flex; gap: 10px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label for="m3u8StartTime">Start Time (HH:MM:SS) *</label>
+                        <input type="text" id="m3u8StartTime" class="tag-input" placeholder="00:00:00"
+                            value="00:00:00" />
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label for="m3u8EndTime">End Time (HH:MM:SS) *</label>
+                        <input type="text" id="m3u8EndTime" class="tag-input" placeholder="00:00:00" value="00:00:00" />
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="m3u8Filename">Filename (optional)</label>
+                    <input type="text" id="m3u8Filename" class="tag-input"
+                        placeholder="Leave empty for auto-generated name" style="width: 100%;" />
+                    <small style="color: #666; font-size: 12px;">Extension .mp4 will be added automatically</small>
+                </div>
+
+                <div class="form-group checkbox-group">
+                    <input type="checkbox" id="m3u8UseFallback" />
+                    <label for="m3u8UseFallback">
+                        🔄 Try yt-dlp fallback if ffmpeg fails (uses native HLS downloader)
+                    </label>
+                </div>
+
+                <div class="download-status" id="downloadStatus" style="display: none;">
+                    <!-- Status updates will appear here -->
+                </div>
+
+                <div class="download-active-list" id="activeDownloadsList" style="margin-top: 15px;">
+                    <!-- Active downloads will be shown here -->
+                </div>
+            </div>
+
+            <div class="modal-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                <button id="startDownloadBtn" class="add-tag-submit" style="flex: 1;">
+                    Start Download
+                </button>
+                <button id="backToCollectionFromDownload" class="thumbnail-modal-btn secondary" style="flex: 1;">
+                    Back to Collection
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SOCKS Proxy Download Modal -->
+    <div id="downloadSOCKSModal" class="tag-modal">
+        <div class="tag-modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>🌐 Download via SOCKS Proxy</h3>
+                <button id="closeDownloadSOCKSModal" class="close-modal">&times;</button>
+            </div>
+
+            <div class="download-form">
+                <div class="form-group">
+                    <label for="socksUrl">Download URL *</label>
+                    <input type="text" id="socksUrl" class="tag-input" placeholder="https://example.com/file.mp4"
+                        style="width: 100%;" />
+                </div>
+
+                <div class="form-group">
+                    <label for="socksFilename">Filename (optional)</label>
+                    <input type="text" id="socksFilename" class="tag-input"
+                        placeholder="Leave empty for auto-generated name" style="width: 100%;" />
+                    <small style="color: #666; font-size: 12px;">Auto-generates from URL if not provided</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="socksProxy">SOCKS Proxy URL (optional)</label>
+                    <input type="text" id="socksProxy" class="tag-input" placeholder="socks5h://127.0.0.1:9050"
+                        style="width: 100%;" />
+                    <small style="color: #666; font-size: 12px;">Leave empty to use default or set via config</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="socksReferer">Referer Header (optional)</label>
+                    <input type="text" id="socksReferer" class="tag-input" placeholder="https://mysite.com/"
+                        style="width: 100%;" />
+                    <small style="color: #666; font-size: 12px;">Leave empty to use default or set via config</small>
+                </div>
+
+                <div class="download-status" id="socksDownloadStatus" style="display: none;">
+                    <!-- Status updates will appear here -->
+                </div>
+
+                <div class="download-active-list" id="socksActiveDownloadsList" style="margin-top: 15px;">
+                    <!-- Active downloads will be shown here -->
+                </div>
+            </div>
+
+            <div class="modal-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                <button id="startSOCKSDownloadBtn" class="add-tag-submit" style="flex: 1;">
+                    Start SOCKS Download
+                </button>
+                <button id="backToCollectionFromSOCKSDownload" class="thumbnail-modal-btn secondary" style="flex: 1;">
+                    Back to Collection
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Download Modal -->
+    <div id="quickDownloadModal" class="tag-modal">
+        <div class="tag-modal-content" style="max-width: 450px; padding: 30px;">
+            <div class="modal-header" style="margin-bottom: 30px;">
+                <h3 style="margin: 0; font-size: 20px;">⚡ Quick Download</h3>
+                <button id="closeQuickDownloadModal" class="close-modal">&times;</button>
+            </div>
+
+            <div class="download-form" style="display: flex; flex-direction: column; align-items: center;">
+                <div class="form-group" style="width: 100%; margin-bottom: 30px;">
+                    <input type="text" id="quickDownloadUrl" class="tag-input" placeholder="Paste URL from clipboard..."
+                        style="width: 100%; padding: 12px 16px; font-size: 14px; border: 2px solid #e5e7eb; border-radius: 8px; font-family: monospace;" />
+                </div>
+
+                <!-- Large Circular Download Button -->
+                <button id="startQuickDownloadBtn" style="
+                    width: 140px;
+                    height: 140px;
+                    border-radius: 50%;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    border: none;
+                    color: white;
+                    font-size: 48px;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+                    transition: all 0.3s ease;
+                    margin: 20px 0;
+                    font-weight: bold;
+                    position: relative;
+                    overflow: hidden;
+                ">
+                    <span id="downloadButtonText">⚡</span>
+                </button>
+
+                <!-- Status Text Below Button -->
+                <div id="quickDownloadStatusText" style="
+                    margin-top: 20px;
+                    font-size: 13px;
+                    color: #666;
+                    text-align: center;
+                    min-height: 20px;
+                    font-weight: 500;
+                ">Ready to download</div>
+            </div>
+
+            <style>
+                #startQuickDownloadBtn:hover {
+                    transform: scale(1.08);
+                    box-shadow: 0 12px 32px rgba(102, 126, 234, 0.5);
+                }
+
+                #startQuickDownloadBtn:active {
+                    transform: scale(0.95);
+                }
+
+                #startQuickDownloadBtn:disabled {
+                    background: #d1d5db;
+                    box-shadow: none;
+                    cursor: not-allowed;
+                }
+
+                #startQuickDownloadBtn:disabled:hover {
+                    transform: none;
+                }
+            </style>
+        </div>
+    </div>
+
+    <!-- Batch Download Modal -->
+    <div id="batchDownloadModal" class="tag-modal">
+        <div class="tag-modal-content" style="max-width: 550px; padding: 30px;">
+            <div class="modal-header" style="margin-bottom: 30px;">
+                <h3 style="margin: 0; font-size: 20px;">📥 Batch Download</h3>
+                <button id="closeBatchDownloadModal" class="close-modal">&times;</button>
+            </div>
+
+            <div class="download-form" style="display: flex; flex-direction: column; align-items: center;">
+                <div class="form-group" style="width: 100%; margin-bottom: 20px;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <label style="font-size: 13px; color: #666; font-weight: 500;">
+                            Enter URLs (one per line):
+                        </label>
+                        <button id="pasteBatchUrlsBtn" type="button" style="
+                            padding: 4px 12px;
+                            font-size: 12px;
+                            background-color: #667eea;
+                            color: white;
+                            border: none;
+                            border-radius: 4px;
+                            cursor: pointer;
+                            font-weight: 500;
+                            transition: background-color 0.2s;
+                        " title="Paste URLs from clipboard">
+                            Paste
+                        </button>
+                    </div>
+                    <textarea id="batchDownloadUrls" class="tag-input"
+                        placeholder="https://example.com/video1.mp4&#10;https://example.com/video2.mp4&#10;https://example.com/video3.mp4"
+                        style="width: 100%; padding: 12px 16px; font-size: 14px; border: 2px solid #e5e7eb; border-radius: 8px; font-family: monospace; min-height: 120px; resize: vertical; font-family: 'Courier New', monospace;"></textarea>
+                </div>
+
+                <!-- Large Circular Download Button -->
+                <button id="startBatchDownloadBtn" style="
+                    width: 140px;
+                    height: 140px;
+                    border-radius: 50%;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    border: none;
+                    color: white;
+                    font-size: 48px;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+                    transition: all 0.3s ease;
+                    margin: 20px 0;
+                    font-weight: bold;
+                    position: relative;
+                    overflow: hidden;
+                ">
+                    <span id="batchDownloadButtonText">📥</span>
+                </button>
+
+                <!-- Status Text Below Button -->
+                <div id="batchDownloadStatusText" style="
+                    margin-top: 20px;
+                    font-size: 13px;
+                    color: #666;
+                    text-align: center;
+                    min-height: 40px;
+                    font-weight: 500;
+                ">Ready to download</div>
+
+                <!-- Progress Bar Container -->
+                <div id="batchDownloadProgressContainer" style="
+                    width: 100%;
+                    margin-top: 20px;
+                    display: none;
+                ">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span id="batchDownloadProgressText" style="font-size: 12px; color: #666; font-weight: 500;">0 /
+                            0</span>
+                    </div>
+                    <div style="
+                        width: 100%;
+                        height: 8px;
+                        background-color: #e5e7eb;
+                        border-radius: 4px;
+                        overflow: hidden;
+                    ">
+                        <div id="batchDownloadProgressBar" style="
+                            height: 100%;
+                            width: 0%;
+                            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+                            border-radius: 4px;
+                            transition: width 0.3s ease;
+                        "></div>
+                    </div>
+                </div>
+            </div>
+
+            <style>
+                #startBatchDownloadBtn:hover {
+                    transform: scale(1.08);
+                    box-shadow: 0 12px 32px rgba(102, 126, 234, 0.5);
+                }
+
+                #startBatchDownloadBtn:active {
+                    transform: scale(0.95);
+                }
+
+                #startBatchDownloadBtn:disabled {
+                    background: #d1d5db;
+                    box-shadow: none;
+                    cursor: not-allowed;
+                }
+
+                #startBatchDownloadBtn:disabled:hover {
+                    transform: none;
+                }
+
+                .batch-download-item {
+                    display: flex;
+                    align-items: center;
+                    padding: 8px;
+                    border-bottom: 1px solid #e5e7eb;
+                    font-size: 12px;
+                }
+
+                .batch-download-item.success {
+                    color: #10b981;
+                }
+
+                .batch-download-item.error {
+                    color: #ef4444;
+                }
+
+                .batch-download-item.pending {
+                    color: #8b5cf6;
+                }
+            </style>
+        </div>
+    </div>
+
+    <!-- Referer Setup Modal (First Time) -->
+    <div id="refererSetupModal" class="tag-modal">
+        <div class="tag-modal-content" style="max-width: 450px;">
+            <div class="modal-header">
+                <h3>🔗 Set Referer Header</h3>
+            </div>
+
+            <div class="download-form">
+                <p style="color: #666; margin-bottom: 15px; font-size: 14px;">
+                    Enter the referer URL for your downloads. This will be cached and used for all downloads in this
+                    session.
+                </p>
+                <div class="form-group">
+                    <label for="setupRefererInput">Referer URL</label>
+                    <input type="text" id="setupRefererInput" class="tag-input" placeholder="https://mysite.com/"
+                        style="width: 100%;" />
+                    <small style="color: #666; font-size: 12px;">Example: https://example.com/</small>
+                </div>
+            </div>
+
+            <div class="modal-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                <button id="confirmRefererSetupBtn" class="add-tag-submit" style="flex: 1;">
+                    Save Referer
+                </button>
+                <button id="skipRefererSetupBtn" class="thumbnail-modal-btn secondary" style="flex: 1;">
+                    Skip
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Video Editor Modal -->
+    <div id="videoEditorModal" class="tag-modal">
+        <div class="tag-modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3>✂️ Edit Video</h3>
+                <button id="closeVideoEditorModal" class="close-modal">&times;</button>
+            </div>
+
+            <div class="video-editor-form">
+                <!-- Operation Tabs -->
+                <div class="editor-tabs"
+                    style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb;">
+                    <button id="cutTabBtn" class="editor-tab-btn active" onclick="app.switchEditorTab('cut')">
+                        ✂️ Cut/Trim
+                    </button>
+                    <button id="cropTabBtn" class="editor-tab-btn" onclick="app.switchEditorTab('crop')">
+                        🎨 Crop
+                    </button>
+                    <button id="bothTabBtn" class="editor-tab-btn" onclick="app.switchEditorTab('both')">
+                        ✂️🎨 Cut & Crop
+                    </button>
+                </div>
+
+                <!-- Video Preview Section -->
+                <div class="editor-video-preview"
+                    style="margin-bottom: 20px; padding: 15px; background: #000; border-radius: 8px;">
+                    <video id="editorPreviewVideo"
+                        style="width: 100%; max-height: 600px; border-radius: 4px; background: #000;" controls>
+                    </video>
+
+                    <!-- Timeline with Range Markers -->
+                    <div class="preview-timeline" style="margin-top: 12px;">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <div style="color: #fff; font-size: 14px;">
+                                <span id="previewCurrentTime">00:00:00</span> / <span
+                                    id="previewDuration">00:00:00</span>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button type="button" class="preview-control-btn" onclick="app.setStartFromPreview()"
+                                    title="Set start time to current position">
+                                    ⏮️ Set Start
+                                </button>
+                                <button type="button" class="preview-control-btn" onclick="app.setEndFromPreview()"
+                                    title="Set end time to current position">
+                                    ⏭️ Set End
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Custom seekbar with visual range -->
+                        <div class="timeline-container"
+                            style="position: relative; height: 40px; background: #374151; border-radius: 4px; cursor: pointer;"
+                            onclick="app.seekPreviewFromClick(event)">
+                            <div id="timelineProgress"
+                                style="position: absolute; top: 0; left: 0; height: 100%; background: #6b7280; border-radius: 4px; pointer-events: none;">
+                            </div>
+                            <div id="timelineRange"
+                                style="position: absolute; top: 0; height: 100%; background: rgba(59, 130, 246, 0.3); border-left: 3px solid #3b82f6; border-right: 3px solid #3b82f6; pointer-events: none;">
+                            </div>
+                            <div id="timelineMarker"
+                                style="position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: #ef4444; pointer-events: none;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cut Section -->
+                <div id="cutSection" class="editor-section">
+                    <h4 style="margin-bottom: 15px;">⏱️ Trim Video Timeline</h4>
+                    <div class="form-row" style="display: flex; gap: 15px;">
+                        <div class="form-group" style="flex: 1;">
+                            <label for="editStartTime">Start Time *</label>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <input type="text" id="editStartTime" class="tag-input" placeholder="0:00 or 00:00:00"
+                                    value="00:00:00" style="flex: 1;" />
+                                <button id="useCurrentTimeStart" class="use-time-btn" title="Use current playback time">
+                                    ⏰
+                                </button>
+                            </div>
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label for="editEndTime">End Time *</label>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <input type="text" id="editEndTime" class="tag-input" placeholder="1:30 or 00:01:30"
+                                    value="00:10:00" style="flex: 1;" />
+                                <button id="useCurrentTimeEnd" class="use-time-btn" title="Use current playback time">
+                                    ⏰
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="currentTimeIndicator"
+                        style="display: none; margin-top: 10px; padding: 10px; background: #e0f2fe; border-radius: 6px; font-size: 14px; color: #0369a1;">
+                        🎬 Current playback time: <strong id="currentTimeDisplay">00:00:00</strong>
+                    </div>
+                    <small style="color: #666; font-size: 12px;">💡 Flexible formats: 30 (seconds), 1:45 (MM:SS), or
+                        01:23:45 (HH:MM:SS)</small>
+                </div>
+
+                <!-- Crop Section -->
+                <div id="cropSection" class="editor-section" style="display: none;">
+                    <h4 style="margin-bottom: 15px;">📐 Crop Video</h4>
+
+                    <div class="form-group">
+                        <label for="cropPreset">Aspect Ratio Preset</label>
+                        <select id="cropPreset" class="tag-input" style="width: 100%;"
+                            onchange="app.onCropPresetChange()">
+                            <option value="">-- Select Preset --</option>
+                            <option value="9:16">9:16 (Vertical - Instagram/TikTok)</option>
+                            <option value="16:9">16:9 (Horizontal - YouTube)</option>
+                            <option value="1:1">1:1 (Square - Instagram)</option>
+                            <option value="custom">Custom Position</option>
+                        </select>
+                    </div>
+
+                    <!-- Custom Positioning Controls -->
+                    <div id="customCropControls"
+                        style="display: none; margin-top: 15px; padding: 15px; background: #f9fafb; border-radius: 8px; border: 2px dashed #d1d5db;">
+                        <h5 style="margin: 0 0 12px 0; font-size: 16px; color: #374151;">📍 Crop Positioning</h5>
+
+                        <div class="form-row" style="display: flex; gap: 15px; margin-bottom: 12px;">
+                            <div class="form-group" style="flex: 1;">
+                                <label for="cropX">Horizontal Offset (X)</label>
+                                <input type="number" id="cropX" class="tag-input" placeholder="0" value="0" min="0" />
+                                <small style="color: #666; font-size: 11px;">Pixels from left edge</small>
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label for="cropY">Vertical Offset (Y)</label>
+                                <input type="number" id="cropY" class="tag-input" placeholder="0" value="0" min="0" />
+                                <small style="color: #666; font-size: 11px;">Pixels from top edge</small>
+                            </div>
+                        </div>
+
+                        <div class="crop-position-presets" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button type="button" class="crop-preset-btn" onclick="app.setCropPosition('center')">📍
+                                Center</button>
+                            <button type="button" class="crop-preset-btn" onclick="app.setCropPosition('top')">⬆️
+                                Top</button>
+                            <button type="button" class="crop-preset-btn" onclick="app.setCropPosition('bottom')">⬇️
+                                Bottom</button>
+                            <button type="button" class="crop-preset-btn" onclick="app.setCropPosition('left')">⬅️
+                                Left</button>
+                            <button type="button" class="crop-preset-btn" onclick="app.setCropPosition('right')">➡️
+                                Right</button>
+                        </div>
+                    </div>
+
+                    <small style="color: #666; font-size: 12px; display: block; margin-top: 10px;">💡 Auto-centered crop
+                        or use custom positioning</small>
+                </div>
+
+                <!-- Options Section (always visible) -->
+                <div class="editor-options" style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #e5e7eb;">
+                    <h4 style="margin-bottom: 15px;">⚙️ Options</h4>
+
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label>📁 Save Location</label>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <button id="toggleSaveLocation" class="tag-input"
+                                style="padding: 8px 16px; border: 2px solid #3b82f6; background: #dbeafe; color: #1e40af; border-radius: 6px; cursor: pointer; font-weight: 600; flex: 1;">
+                                Same Folder
+                            </button>
+                            <span id="saveFolderDisplay" style="color: #666; font-size: 14px;">Current: <strong
+                                    id="saveFolderName">-</strong></span>
+                        </div>
+                        <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">Click to toggle
+                            between same folder and edit folder</small>
+                    </div>
+
+                    <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" id="copyOtherItems" checked style="width: 20px; height: 20px;" />
+                        <label for="copyOtherItems" style="margin: 0; cursor: pointer;">
+                            🏷️ Copy Tags & Metadata (tags, face-id, etc.)
+                        </label>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 15px; display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" id="preserveFaces" checked style="width: 20px; height: 20px;" />
+                        <label for="preserveFaces" style="margin: 0; cursor: pointer;">
+                            👤 Preserve Face Associations (copy from original video)
+                        </label>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label for="editOutputFilename">Output Filename (optional)</label>
+                        <input type="text" id="editOutputFilename" class="tag-input"
+                            placeholder="Leave empty for auto-generated name" style="width: 100%;" />
+                        <small style="color: #666; font-size: 12px;">Extension .mp4 and timestamps will be added
+                            automatically</small>
+                    </div>
+                </div>
+
+                <!-- Status Display -->
+                <div id="editJobStatus"
+                    style="display: none; margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                    <!-- Job status will appear here -->
+                </div>
+            </div>
+
+            <div class="modal-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+                <button id="processVideoBtn" class="add-tag-submit" style="flex: 1;">
+                    ✨ Process Video
+                </button>
+                <button id="backToCollectionFromEditor" class="thumbnail-modal-btn secondary" style="flex: 1;">
+                    Back to Collection
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Audio Modal -->
+    <div id="addAudioModal" class="thumbnail-modal" style="display: none;">
+        <div class="thumbnail-modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>🎵 Add Audio</h3>
+                <button id="closeAddAudioModal" class="close-modal">&times;</button>
+            </div>
+
+            <div class="audio-modal-body-simple">
+                <div id="audioListContainer" class="audio-list-container">
+                    <!-- Audio files will be loaded here -->
+                </div>
+                <audio id="audioPreviewAudio" style="display: none;"></audio>
+            </div>
+
+            <div class="thumbnail-modal-actions">
+                <button id="addAudioConfirmBtn" class="thumbnail-modal-btn primary" disabled>
+                    ✅ Add Audio
+                </button>
+                <button id="closeAddAudioModalBtn" class="thumbnail-modal-btn secondary">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Keyboard Shortcuts Help Modal -->
+    <div id="helpModal" class="thumbnail-modal">
+        <div class="thumbnail-modal-content" style="max-width: 900px; max-height: 85vh;">
+            <div class="modal-header">
+                <h3>⌨️ Keyboard Shortcuts & Features</h3>
+                <button id="closeHelpModal" class="close-modal">&times;</button>
+            </div>
+
+            <div class="help-content">
+                <!-- Video Playback -->
+                <div class="help-section">
+                    <h4>🎬 Video Playback</h4>
+                    <div class="help-shortcuts">
+                        <div class="help-shortcut">
+                            <kbd>Space</kbd>
+                            <span>Play / Pause</span>
+                        </div>
+                        <div class="help-shortcut">
+                            <kbd>F</kbd>
+                            <span>Toggle Fullscreen</span>
+                        </div>
+                        <div class="help-shortcut">
+                            <kbd>M</kbd>
+                            <span>Toggle Mute</span>
+                        </div>
+                        <div class="help-shortcut">
+                            <kbd>L</kbd>
+                            <span>Toggle Loop</span>
+                        </div>
+                        <div class="help-shortcut">
+                            <kbd>←</kbd> <kbd>→</kbd>
+                            <span>Seek ±10 seconds</span>
+                        </div>
+                        <div class="help-shortcut">
+                            <kbd>↑</kbd> <kbd>↓</kbd>
+                            <span>Seek ±30 seconds</span>
+                        </div>
+                        <div class="help-shortcut">
+                            <kbd>0</kbd>
+                            <span>Jump to start</span>
+                        </div>
+                        <div class="help-shortcut">
+                            <kbd>End</kbd>
+                            <span>Jump to end</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Thumbnails & Metadata -->
+                <div class="help-section">
+                    <h4>🖼️ Thumbnails & Metadata</h4>
+                    <div class="help-shortcuts">
+                        <div class="help-shortcut">
+                            <kbd>T</kbd>
+                            <span>Capture current frame as thumbnail</span>
+                        </div>
+                        <div class="help-shortcut">
+                            <kbd>C</kbd>
+                            <span>Copy current frame to clipboard</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Face Recognition -->
+                <div class="help-section">
+                    <h4>👤 Face Recognition</h4>
+                    <div class="help-shortcuts">
+                        <div class="help-shortcut">
+                            <kbd>S</kbd>
+                            <span>Quick face search from current frame</span>
+                        </div>
+                        <div class="help-shortcut">
+                            <kbd>X</kbd>
+                            <span>Open face extraction modal</span>
+                        </div>
+                        <div class="help-shortcut">
+                            <kbd>A</kbd>
+                            <span>Auto-scan faces (random frames)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fingerprints -->
+                <div class="help-section">
+                    <h4>🆔 Duplicate Detection</h4>
+                    <div class="help-shortcuts">
+                        <div class="help-shortcut">
+                            <kbd>Shift</kbd> + <kbd>F</kbd>
+                            <span>Add current frame to fingerprint</span>
+                        </div>
+                        <div class="help-shortcut-info">
+                            Right-click video card → View Fingerprints to manage frames
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Navigation -->
+                <div class="help-section">
+                    <h4>🧭 Navigation</h4>
+                    <div class="help-shortcuts">
+                        <div class="help-shortcut">
+                            <kbd>Escape</kbd>
+                            <span>Close modal or video player</span>
+                        </div>
+                        <div class="help-shortcut">
+                            <kbd>/</kbd>
+                            <span>Focus search box</span>
+                        </div>
+                        <div class="help-shortcut">
+                            <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>C</kbd>
+                            <span>Clear filters and return to collection</span>
+                        </div>
+                        <div class="help-shortcut">
+                            <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>E</kbd>
+                            <span>Switch to explorer view</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Features -->
+                <div class="help-section">
+                    <h4>✨ Features</h4>
+                    <div class="help-features">
+                        <div class="help-feature">
+                            <strong>🏷️ Tags:</strong> Color-coded labels for organizing videos
+                        </div>
+                        <div class="help-feature">
+                            <strong>👥 Actors:</strong> Link actors to videos with notes
+                        </div>
+                        <div class="help-feature">
+                            <strong>📺 Series Info:</strong> Track series, seasons, episodes
+                        </div>
+                        <div class="help-feature">
+                            <strong>🔍 Find Similar:</strong> Detect duplicate/similar videos using perceptual hashing
+                        </div>
+                        <div class="help-feature">
+                            <strong>☑️ Multi-Select:</strong> Bulk tag, move, or organize videos
+                        </div>
+                        <div class="help-feature">
+                            <strong>⚡ Load Metadata:</strong> On-demand extraction of duration, resolution, codec
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="thumbnail-modal-actions">
+                <button id="closeHelpModalBtn" class="thumbnail-modal-btn secondary">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress Overlay Modal -->
+    <div id="progressOverlay" class="progress-overlay" style="display: none;">
+        <div class="progress-overlay-content">
+            <div class="progress-spinner"></div>
+            <div id="progressOverlayTitle" class="progress-title">🆔 Generating Fingerprints</div>
+            <div id="progressOverlayText" class="progress-text">Processing videos...</div>
+            <div id="progressOverlayCount" class="progress-count">3 / 10</div>
+            <div class="progress-bar-container">
+                <div id="progressBar" class="progress-bar" style="width: 30%;"></div>
+            </div>
+            <button id="dismissProgressBtn" class="progress-dismiss-btn">Continue in Background</button>
+        </div>
+    </div>
+
+    <!-- Global Duplicate Search Overlay -->
+    <div id="duplicateSearchOverlay" class="duplicate-search-global-overlay" style="display: none;">
+        <div class="duplicate-search-overlay-content">
+            <div class="duplicate-search-spinner"></div>
+            <div class="duplicate-search-title">🔍 Finding Similar Videos</div>
+            <div id="duplicateSearchOverlayText" class="duplicate-search-text">Scanning...</div>
+            <div class="duplicate-search-bar-container">
+                <div id="duplicateSearchProgressBar" class="duplicate-search-bar"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+
+</html>

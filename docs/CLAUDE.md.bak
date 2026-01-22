@@ -1,0 +1,976 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+Clipper is a lightweight, self-hosted web-based MP4 file manager designed for hobby use with minimal dependencies. It provides a clean web interface for browsing, organizing, and playing local video collections where folders act as categories.
+
+### Features
+- **Web Interface**: Clean, responsive UI for browsing video collections
+- **Folder-based Categories**: Organize videos by filesystem folders
+- **Tagging System**: Color-coded tags with filtering and search
+- **Bulk Operations**: Select multiple videos for batch tagging, moving, or organizing
+- **Video Metadata**: Auto-extracted duration, resolution, codec, bitrate using ffprobe
+- **Face Recognition**: AI-powered face detection and cataloging with InsightFace
+- **Duplicate Detection**: Perceptual hashing to find similar or duplicate videos
+- **Drag & Drop**: Move videos between categories
+- **Real-time Search**: Find videos by filename, tags, or faces
+- **Thumbnail Previews**: Auto-generated video thumbnails stored in database
+- **Multiple Access Modes**: Optimized HTTP streaming with byte-range seeking
+- **Self-Hosted**: Simple local deployment with no external dependencies
+
+## Architecture
+
+**Stack**: Python FastAPI backend + Vanilla JavaScript frontend + SQLite database
+
+- **Backend** (`backend/`): FastAPI server with async SQLite database using SQLAlchemy ORM
+- **Frontend** (`frontend/`): Vanilla JavaScript single-page application with HTML5 video player
+- **Database**: Dual SQLite databases (main + thumbnails) for metadata and binary data
+- **File System**: Source of truth for video organization (folders = categories)
+
+### Database Architecture
+
+Clipper uses two separate SQLite databases located in `{ROOT}/.clipper/`:
+
+**Main Database** (`clipper.db`): Video metadata, tags, categories, relationships, face recognition
+```sql
+videos table:
+  - id, path, name, display_name, description, category, subcategory, relative_path
+  - size, modified, extension
+  - thumbnail_url, thumbnail_generated
+  - duration, width, height, codec, bitrate, fps (video metadata)
+  - fingerprint_generated, fingerprinted_at (duplicate detection)
+
+tags table:
+  - id, name, color
+
+video_tags table:
+  - video_id, tag_id (many-to-many relationships)
+
+actors table:
+  - id, name, notes, video_count, created_at
+
+video_actors table:
+  - id, video_id, actor_id, created_at (many-to-many relationships)
+
+folder_scan_status table:
+  - id, folder_name, last_scanned, video_count, scan_duration, is_scanned
+
+categories table:
+  - id, name, path, description
+
+video_fingerprints table:
+  - id, video_id, frame_position, phash, created_at (perceptual hashing for duplicates)
+
+face_ids table:
+  - id, name, actor_id, thumbnail_path, encoding_count, created_at, updated_at
+
+face_encodings table:
+  - id, face_id, video_id (nullable - preserved when video deleted), frame_timestamp, encoding (base64), thumbnail (base64)
+  - confidence, quality_score, created_at (limit: 20 per face)
+
+video_faces table:
+  - id, video_id, face_id, first_detected_at, detection_method, appearance_count, created_at
+  - UNIQUE(video_id, face_id) constraint (many-to-many relationships)
+```
+
+**Thumbnail Database** (`thumbnails.db`): Binary thumbnail data stored as BLOBs
+```sql
+thumbnails table:
+  - id, video_path_hash, image_data (BLOB), created_at, file_size
+```
+
+**Benefits of dual databases**:
+- Reduces filesystem clutter (1000 videos = 2 DB files vs 1000+ JPGs)
+- Atomic operations with database transactions
+- Easy cleanup without orphaned files
+- Separate concerns: metadata vs binary data
+
+### Key Components
+
+**Backend**:
+- `backend/main.py`: FastAPI application with REST endpoints, lifespan management, CORS setup
+- `backend/video_service.py`: Core video management and file operations (move, rename, organize)
+- `backend/video_editor.py`: Video editing service with in-memory job tracking (cut, crop operations)
+- `backend/m3u8_downloader.py`: M3U8/HLS video downloader with ffmpeg and yt-dlp fallback
+- `backend/thumbnail_db.py`: Database-based thumbnail storage using ffmpeg (async BLOB operations)
+- `backend/face_service.py`: Face recognition service using InsightFace (detection, encoding, similarity)
+- `backend/fingerprint_service.py`: Video fingerprinting service for duplicate detection (perceptual hashing)
+- `backend/config.py`: Environment-based configuration management (simple Config class)
+- `backend/database.py`: SQLAlchemy models and database operations (async sessions)
+- `backend/file_scanner.py`: File system scanning and video discovery (recursive folder walking)
+- `backend/local_mode.py`: Local file mode configuration and URL generation
+- `backend/metadata_parser.py`: Video metadata extraction using ffprobe
+- `backend/color_utils.py`: Color manipulation utilities for tags
+
+**Frontend**:
+- `frontend/app.js`: Main JavaScript application class (ClipperApp) with API integration (~20,760 lines)
+- `frontend/config.js`: Frontend configuration for local mode preferences
+- `frontend/index.html`: Primary web interface
+- `frontend/styles.css`: CSS Grid/Flexbox responsive layouts
+- `frontend/face-extraction-new.js`: Face extraction modal and workflow
+- `frontend/face-api.min.js`: face-api.js library (v0.22.2)
+
+**Utilities**:
+- `start.py`: Convenience startup script with automatic dependency installation
+- `launch.sh`: Mode-aware launcher script (local/stream mode selection with flags)
+- `migrate_thumbnails.py`: Migration script for converting file-based thumbnails to database
+
+## Development Commands
+
+### Quick Start
+
+```bash
+# Option 1: Simple startup (recommended for quick start)
+python start.py
+
+# Option 2: Launch with mode selection (more control)
+./launch.sh local --root /path/to/videos    # Local file mode
+./launch.sh stream --root /path/to/videos   # HTTP streaming mode
+
+# Option 3: Manual setup
+cd backend
+pip install -r requirements.txt
+python main.py
+
+# Access at http://localhost:8000
+# API Documentation at http://localhost:8000/docs
+```
+
+### Database Operations
+
+```bash
+# Databases are automatically created on first run
+# Main database: {CLIPPER_ROOT_DIRECTORY}/.clipper/clipper.db
+# Thumbnails: {CLIPPER_ROOT_DIRECTORY}/.clipper/thumbnails.db
+
+# Manual filesystem scan with database sync
+curl "http://localhost:8000/scan?sync_db=true&prune_missing=true"
+
+# Generate thumbnails for specific video
+curl -X POST "http://localhost:8000/api/thumbnails/generate/{video_id}"
+
+# Migrate existing file-based thumbnails to database (if needed)
+cd backend
+python migrate_thumbnails.py --regenerate
+
+# Health check
+curl "http://localhost:8000/health"
+```
+
+### Testing Commands
+
+```bash
+# Test thumbnail generation
+curl -X POST "http://localhost:8000/api/thumbnails/generate/1"
+
+# Test video streaming
+curl -I "http://localhost:8000/videos/1/stream"
+
+# Search videos
+curl "http://localhost:8000/search?q=test&tags=action,comedy"
+
+# Check API documentation
+open http://localhost:8000/docs
+```
+
+### Dependencies
+
+- **Python 3.12+** required
+- **ffmpeg** required for thumbnail generation, video metadata extraction, and video editing (check with `ffmpeg -version`)
+- **yt-dlp** optional but recommended for M3U8/HLS download fallback (install with `pip install yt-dlp`)
+- **Backend dependencies** managed via `pip install -r backend/requirements.txt`:
+  - fastapi==0.104.1
+  - uvicorn==0.24.0
+  - sqlalchemy==2.0.23
+  - aiosqlite==0.19.0
+  - pydantic==2.5.0
+  - python-multipart==0.0.6
+  - imagehash==4.3.1 (video fingerprinting)
+  - Pillow==10.1.0 (image processing)
+  - insightface==0.7.3 (face recognition)
+  - onnxruntime==1.16.3 (face recognition models)
+  - opencv-python==4.8.1.78 (face detection)
+  - numpy==1.24.3 (numerical operations)
+- **Frontend dependencies**:
+  - face-api.js@0.22.2 (local copy at `/static/face-api.min.js`)
+
+## Configuration
+
+### Environment Variables
+
+Uses environment variables for simple configuration (see `backend/config.py` and `.env.example`):
+
+```bash
+# Main setting - where your videos are
+export CLIPPER_ROOT_DIRECTORY="/path/to/videos"
+
+# Video access mode
+export CLIPPER_LOCAL_MODE=true          # Enable local file:// URLs
+export CLIPPER_HYBRID_MODE=true         # Enable both local and streaming
+
+# Server settings
+export CLIPPER_PORT=8000
+export CLIPPER_HOST="0.0.0.0"
+export CLIPPER_DEBUG=true
+export CLIPPER_RELOAD=true
+
+# File scanning
+export CLIPPER_EXCLUDED_FOLDERS="Temp,.DS_Store,.clipper,@eaDir"
+
+# Database (optional, defaults to {ROOT}/.clipper/clipper.db)
+export CLIPPER_DB_PATH="custom/path/to/clipper.db"
+
+# CORS (optional, defaults work for local development)
+export CLIPPER_CORS_ORIGINS="http://localhost:8000,http://127.0.0.1:8000"
+```
+
+**Alternative**: Copy `.env.example` to `.env` and customize the values.
+
+### Video Streaming Mode
+
+Clipper uses **optimized HTTP streaming** with byte-range support for instant seeking:
+
+- **Use case**: Local or remote access with maximum compatibility
+- **Benefits**: Works in all browsers, instant seeking, supports resume playback
+- **Implementation**: HTTP 206 Partial Content responses with byte-range requests
+- **Performance**: Fast seeking on localhost, no buffering delays
+
+The streaming endpoint (`/stream/{category}/{video_path}`) includes:
+- Path traversal protection (security feature)
+- Byte-range request parsing for seeking
+- 512KB chunk size for smooth playback
+- Content-Range headers for browser seeking support
+- 1-hour cache headers for performance
+
+**Note**: Earlier versions supported `file://` URLs, but browsers block this for security. The current HTTP streaming implementation provides equivalent performance for local usage.
+
+## Key Features
+
+### Video Metadata Extraction
+- **Fast Scanning Mode**: By default, scans only discover filenames for instant results
+  - Metadata extraction is decoupled from file discovery
+  - Large collections scan in seconds instead of minutes
+- **On-Demand Metadata**: Load metadata when needed via context menu
+  - **⚡ Load Metadata** option on video cards (when metadata not yet extracted)
+  - **⚡ Load Metadata** option in folder menu (processes all videos in folder)
+  - API endpoints: `/api/videos/{id}/extract-metadata`, `/api/videos/folder/{name}/extract-metadata`
+- **Auto-extraction**: Uses `ffprobe` to extract:
+  - Duration, width, height, codec, bitrate, FPS
+- **Smart display**: Resolution shown as "1080p", "720p", "4K" instead of raw dimensions
+- **Database storage**: Metadata cached in SQLite, extracted once per video
+- **API responses**: All video endpoints return metadata fields
+- **UI display**: Metadata line shows "⏱️ 5:23 • 📺 1080p • 💾 250MB • 🆔" on video cards
+  - Duration with clock emoji (⏱️)
+  - Resolution with TV emoji (📺)
+  - File size with floppy disk emoji (💾)
+  - Fingerprint status with ID emoji (🆔) when video is fingerprinted
+
+### Display Name & Description System
+- **Display Name**: User-friendly name shown in UI (separate from filename on disk)
+  - Defaults to filename without extension for existing videos
+  - Can be customized without renaming the actual file
+  - Preserved when renaming the file itself
+- **Description**: Optional text field for video metadata
+  - Multi-line text support for detailed descriptions
+  - Searchable along with filename and tags
+- **Unified Edit Modal**: Single "Edit Video Information" modal for all metadata
+  - Display Name: Changes UI display only
+  - File Name: Renames actual file on disk
+  - Description: Adds searchable metadata
+  - Keyboard shortcuts: Enter to save, Escape to cancel
+- **Smart Updates**: Only sends changed fields to backend
+- **Enhanced Search**: Searches across display_name, name, description, and tags
+- **API Endpoint**: `POST /videos/{id}/update` handles all metadata updates
+
+### Video Card Display Design
+- **Title Row**: Display name with inline season/episode badges
+  - Display name: 16px, bold, black (#111827)
+  - Season/Episode: Inline text with parentheses, same style as title
+  - Format: "Name (S01) (E07)" - flows as continuous text
+  - Long titles wrap naturally with badges included
+  - Channel badge: 12px, grey gradient background, right-aligned
+- **Metadata Line**: Emoji-based indicators with bullet separators
+  - ⏱️ Duration • 📺 Resolution • 💾 File Size • 🆔 Fingerprint (if fingerprinted)
+  - All metadata shown in compact format
+- **Folder Path**: 12px, grey text, bottom-right of card
+  - Navigable path segments for quick category filtering
+- **Design Principles**:
+  - Season/episode badges have no background - match title style exactly
+  - All text elements flow naturally and wrap together
+  - Consistent 12px font for secondary information (channel, folder path)
+  - Emoji icons for visual clarity without cluttering the interface
+
+### Bulk Operations
+- **Selection Mode**: Toggle multi-select with checkboxes on video cards
+- **Batch Actions**:
+  - Bulk tag: Process 5 videos in parallel
+  - Bulk move: Sequential processing to avoid filesystem conflicts
+- **Visual Feedback**: Floating toolbar shows selection count and available actions
+- **Progress Tracking**: Console logs show real-time progress (completed/failed counts)
+- **Smart Processing**: Automatic error handling and retry logic
+
+### Tag System
+- **Color-coded Tags**: Each tag has a customizable hex color
+- **Untagged Filter**: "(Untagged)" option in tag dropdown to find videos without tags
+- **Client-side Filtering**: Fast filtering without server requests
+- **Tag Management**: Create, delete, and assign tags to videos
+- **Bulk Tagging**: Tag multiple videos at once
+
+### Video Fingerprinting & Duplicate Detection
+- **Perceptual Hashing**: Video fingerprinting using pHash algorithm
+  - Extracts key frames at 5%, 25%, 50%, 75%, 95% of video duration
+  - Generates 64-bit perceptual hash for each frame
+  - Compares Hamming distance to detect duplicates
+  - Similar videos detected even with different resolutions/encodings
+- **Scoped Duplicate Detection**: Two detection modes for different use cases
+  - **Find Duplicates (Within Folder)**: Compares only videos in current folder (optimized for faster results)
+  - **Find Similar (All Collections)**: Compares across entire video library
+  - Backend optimized to only load fingerprints for videos in query scope
+- **Duplicate Groups View**: Dedicated interface for reviewing similar videos
+  - Shows similarity percentage for each match
+  - Groups similar videos together for easy review
+  - **One-Time Group Tagging**: Tag entire group with auto-generated `dup-XXXX` tags
+  - Visual feedback: Tagged groups show "✓ Tagged: dup-XXXX" (green indicator)
+  - Prevents duplicate tagging: Button disabled once group is tagged
+  - Stay-in-view workflow: After tagging, view persists for continued review
+- **View State Preservation**: Seamless transitions between duplicate and collection views
+  - Saves current view context (Explorer/Collection, category, subcategory) before entering duplicate view
+  - Restores exact previous state when exiting duplicate view
+  - Prevents layout issues and maintains user navigation context
+- **Smart Pagination**: Context-aware "Load More Videos" button
+  - Only appears in main collection view
+  - Hidden in Explorer folder view (shows all videos)
+  - Hidden in duplicate view
+- **Backend Implementation**: [backend/fingerprint_service.py](backend/fingerprint_service.py)
+
+### Face Recognition System
+
+Dual-stack architecture: face-api.js (frontend detection) + InsightFace (backend 512-D embeddings).
+
+**Components**:
+- Frontend: SSD MobileNet v1, browser-based detection
+- Backend: InsightFace 0.7.3, cosine similarity matching, CPU-optimized
+- Database: `face_ids`, `face_encodings` (preserved when videos deleted), `video_faces` (junction)
+
+**Workflows**:
+- **'S' Key**: Quick face search from current frame, link to existing or create new
+- **'X' Key**: Batch extraction modal, scan 20-30 frames, detect and catalog multiple faces
+
+**Key Endpoints**: `/api/faces/search`, `/api/faces/create`, `/api/videos/{id}/faces/{face_id}/link`, `/api/faces/catalog`, `/api/faces/merge`
+
+### Video Editor & Processing
+
+- **In-Memory Job Tracking**: Tracks processing jobs without database overhead
+- **Quality Presets**: Fast (stream copy), Balanced, High (re-encoding)
+- **Operations**: Cut, Crop (9:16, 16:9, 1:1, custom), or both combined
+- **Pro Timeline UI**: Drag IN/OUT handles, visual timeline with keyboard shortcuts (I/O keys)
+- **M3U8/HLS Downloads**: Two-tier strategy (ffmpeg primary, yt-dlp fallback)
+- **Auto-Import**: Automatically refreshes destination folder after processing
+
+### Smart Delete System
+
+Two-tier deletion for safety: Move to `DELETE` folder (reversible), then permanent deletion (irreversible). Permanent deletion only available from DELETE folder with confirmation modal.
+
+### Mobile Optimizations
+
+- **Swipe Navigation**: Vertical swipes for previous/next video (Instagram-style)
+- **Fullscreen Video**: Object-fit cover, safe area insets, body scroll lock
+- **Touch Seek**: Tap left/right to seek ±10s with visual indicators
+- **Compact Controls**: Ultra-compact video editor controls optimized for mobile
+- **Responsive Layout**: Auto-adjusts for small screens with touch-friendly targets
+
+### Performance Optimizations
+- **Scroll Performance**: requestAnimationFrame-based throttling
+  - Reduced CPU usage from 60-80% to 10-20% during scroll
+- **Passive Event Listeners**: Prevents blocking compositor thread
+- **Image Decoding**: Async image decoding to prevent main thread blocking
+- **Thumbnail Caching**: 1-hour HTTP cache with ETag validation
+- **Database Indexes**: Composite indexes on common queries (10-100x faster)
+
+## API Architecture
+
+### Core Endpoints
+
+- `GET /videos` - List videos with pagination and filtering
+  - Query params: `category`, `limit`, `offset`, `sort_by`
+- `GET /videos/{id}` - Get single video details
+- `GET /stream/{category}/{video_path}` - Stream video file with byte-range support (optimized for seeking)
+- `POST /videos/{id}/move` - Move video between folders (physically moves file)
+  - Body: `{"target_category": "string", "target_subcategory": "string"}`
+- `POST /videos/{id}/rename` - Rename video file (legacy endpoint)
+  - Body: `{"new_name": "string"}`
+- `POST /videos/{id}/update` - Update video metadata (display_name, description) and optionally rename file
+  - Body: `{"display_name": "string", "description": "string", "new_name": "string"}`
+  - All fields are optional, only changed fields are sent
+- `GET /categories` - List available folders/categories
+- `GET /scan` - Trigger filesystem scan and database sync
+  - Query params: `sync_db=true`, `prune_missing=true`
+- `GET /search` - Search videos by display_name, name, description, and tags
+  - Query params: `q=query`, `tags=tag1,tag2`
+- `GET /health` - Health check endpoint for monitoring
+
+### Metadata Extraction
+
+- `POST /api/videos/{video_id}/extract-metadata` - Extract metadata for single video
+  - Extracts duration, resolution, codec, bitrate, FPS using ffprobe
+  - Returns metadata object with extracted fields
+  - Skips if metadata already exists
+- `POST /api/videos/folder/{folder_name}/extract-metadata` - Extract metadata for all videos in folder
+  - Processes all videos in folder (including subfolders)
+  - Skips videos that already have metadata
+  - Returns count of processed videos
+- `POST /api/videos/bulk/extract-metadata` - Extract metadata for multiple videos
+  - Body: `{"video_ids": [1, 2, 3]}`
+  - Processes up to 100 videos at once
+  - Returns success/failure count
+
+### Tagging System
+
+- `GET /tags` - List all tags with colors
+- `POST /videos/{id}/tags` - Add tag to video
+  - Body: `{"tag_name": "string", "color": "#hex"}`
+- `DELETE /videos/{id}/tags/{tag_id}` - Remove tag from video
+- `GET /videos?tags=tag1,tag2` - Filter videos by tags
+
+### Thumbnail Management
+
+- `GET /api/thumbnails/{video_id}` - Get thumbnail from database (BLOB served as JPEG)
+  - Query params: `?t={timestamp}&bustCache={random}` for cache busting
+- `POST /api/thumbnails/generate/{video_id}` - Generate thumbnail for video using ffmpeg
+  - Captures frame at 10% of video duration
+  - Stored as BLOB in thumbnails.db
+
+### Video Fingerprinting & Duplicate Detection
+
+- `POST /api/fingerprints/generate/{video_id}` - Generate perceptual hash fingerprints for video
+  - Extracts 5 key frames (5%, 25%, 50%, 75%, 95% of duration)
+  - Generates 64-bit pHash for each frame
+  - Stores fingerprints in database
+- `POST /api/videos/{video_id}/fingerprint` - Generate fingerprint for single video (alias)
+- `DELETE /api/videos/{video_id}/fingerprint` - Delete video fingerprints
+- `POST /api/fingerprints/find-duplicates/{video_id}` - Find similar videos across all collections
+  - Compares against all videos in database
+  - Returns groups of similar videos with similarity percentages
+  - Uses Hamming distance threshold for matching
+- `POST /api/fingerprints/find-all-duplicates` - Find all duplicate groups in collection
+  - Query params: `?category={name}` (optional, for folder-scoped detection)
+  - Returns array of duplicate groups with similarity scores
+  - Optimized to only load fingerprints for videos in scope
+- `POST /api/fingerprints/tag-group` - Tag entire duplicate group with auto-generated tag
+  - Query params: `?tag_name={dup-XXXX}`
+  - Applies tag to all videos in the group
+  - Used by one-time group tagging feature
+
+### Video Editing & Processing
+
+- `POST /api/videos/{video_id}/process` - Process video with cut/crop operations
+  - Body: `{"operation": "cut|crop|cut_and_crop", "start_time": "HH:MM:SS", "end_time": "HH:MM:SS", "crop_preset": "9:16|16:9|1:1|custom", "crop_width": int, "crop_height": int, "crop_x": int, "crop_y": int, "quality": "fast|balanced|high", "output_location": "edited_folder|same_folder", "output_filename": "string"}`
+  - All fields optional except `operation`
+  - Returns job_id for tracking progress
+- `GET /api/videos/processing/status/{job_id}` - Get video processing job status
+  - Returns: `{"status": "pending|processing|completed|failed", "progress": 0-100, "output_path": "string", "error_message": "string"}`
+- `GET /api/videos/processing/active` - List all active processing jobs
+  - Returns array of active jobs with status and progress
+
+### M3U8/HLS Download
+
+- `POST /api/m3u8/download` - Download M3U8/HLS video clip
+  - Body: `{"url": "string", "start_time": "HH:MM:SS", "end_time": "HH:MM:SS", "filename": "string", "use_ytdlp_fallback": bool}`
+  - Downloads to `ROOT/DOWNLOADS/` folder
+  - Returns download_id for tracking progress
+- `GET /api/m3u8/status/{download_id}` - Get download status
+  - Returns: `{"status": "pending|downloading|completed|failed", "output_path": "string", "error_message": "string"}`
+
+### Folder Management
+
+- `POST /api/folders/rename` - Rename folder and move all videos
+  - Body: `{"old_name": "string", "new_name": "string"}`
+  - Physically renames folder on disk
+  - Updates all video paths in database
+  - Returns count of videos moved
+- `POST /scan/folder/{folder_name}` - Scan specific folder
+  - Scans single folder and updates database
+  - Query params: `sync_db=true`, `prune_missing=true`
+- `POST /scan/folder/{folder_name}/smart-refresh` - Smart folder refresh
+  - Refreshes folder with intelligent caching
+  - Only rescans if folder modified since last scan
+
+### Enhanced Video Management
+
+- `POST /videos/{video_id}/toggle-final` - Toggle video's final status
+  - Marks video as "final" version for workflow tracking
+- `POST /api/videos/parse-metadata` - Parse metadata from filename patterns
+  - Extracts structured data from filename (season, episode, etc.)
+  - Body: `{"filename": "string", "pattern": "string"}`
+- `POST /api/videos/bulk-update` - Bulk update video metadata
+  - Body: `{"video_ids": [1, 2, 3], "updates": {"field": "value"}}`
+  - Updates multiple videos in single request
+  - Returns success/failure count
+- `POST /videos/{video_id}/delete` - Move video to DELETE folder (trash)
+  - Reversible deletion - moves to trash folder
+  - Video can be recovered by moving back
+- `POST /videos/{video_id}/delete-permanent` - Permanently delete video from disk
+  - Only works for videos in DELETE folder
+  - Irreversible - deletes file and database entry
+  - Shows confirmation modal before deletion
+
+### Video Response Format
+
+Videos returned by the API include complete metadata:
+
+```json
+{
+  "id": 1,
+  "name": "video.mp4",
+  "display_name": "My Favorite Movie",
+  "description": "An action-packed thriller from 2023",
+  "category": "Movies",
+  "subcategory": "Action/2023",
+  "path": "/full/path/to/video.mp4",
+  "size": 1024000000,
+  "modified": 1234567890.0,
+  "thumbnail_url": "/api/thumbnails/1?t=1234567890",
+  "thumbnail_generated": 1,
+  "duration": 5823.5,
+  "width": 1920,
+  "height": 1080,
+  "codec": "h264",
+  "bitrate": 5000000,
+  "fps": 29.97,
+  "tags": [
+    {"id": 1, "name": "action", "color": "#ff0000"}
+  ]
+}
+```
+
+## Frontend Architecture
+
+### Class Structure
+
+- **ClipperApp**: Main application controller (~20,760 lines) managing state and API interactions
+  - **State Management**: `videos`, `allVideos`, `selectedVideos`, `selectionMode`, `currentView`
+    - Dual view system: Collection (list) vs Explorer (folder browsing)
+    - View state preservation for seamless duplicate view transitions
+    - `duplicateViewActive`, `duplicateGroups`, `previousViewState` for context switching
+  - **Video Operations**: Loading, pagination, search, filtering, sorting
+    - Context-aware pagination: Full display in Explorer folders, paginated in Collection
+    - On-demand metadata loading via context menu
+  - **Modals**: Video player, tagging, moving, renaming, thumbnail selection, duplicate groups
+  - **Bulk Operations**: Multi-select, batch tagging, batch moving with progress tracking
+  - **Drag-and-drop**: Video card dragging between categories
+  - **Metadata Display**: Formatted duration, resolution, file sizes, fingerprint status with emoji indicators
+  - **Season/Episode Display**: Inline text badges with parentheses, integrated with title
+  - **Cache Management**: Thumbnail cache busting, tag usage tracking
+  - **Event Handling**: 30+ event listeners for UI interactions
+- **Vanilla JavaScript**: ES6+ features, no frameworks or build tools
+- **CSS Grid Layout**: Responsive video browsing with flexbox modals
+- **HTML5 Video Player**: Modal-based playback with keyboard controls, byte-range seeking
+
+### Key Features
+
+- **Context-aware pagination**: Smart pagination based on current view
+  - Collection view: Infinite scroll with "Load More Videos" button
+  - Explorer folder view: Shows all videos without pagination
+  - Duplicate view: Custom grouped display with no pagination
+- **Real-time search**: 300ms debouncing to reduce server load
+- **On-demand metadata**: Load video metadata when needed via context menu (⚡ Load Metadata)
+- **Bulk operations**: Multi-select mode with batch tagging and moving
+- **Duplicate detection workflow**: Scoped detection with one-time group tagging
+  - Find duplicates within folder or across all collections
+  - Tag entire groups with auto-generated `dup-XXXX` tags
+  - Visual feedback for already-tagged groups
+  - View state preservation when entering/exiting duplicate mode
+- **Video metadata display**: Shows duration, resolution, file size, and fingerprint status with emoji indicators
+- **Season/Episode display**: Inline badges (S01) (E07) that flow naturally with title text
+- **Drag-and-drop organization**: Move videos between categories via UI
+- **Tag-based filtering**: Click tags to filter, combine multiple tags (includes "Untagged" filter)
+- **Cache-busting**: Append timestamp parameters to thumbnail URLs after changes
+- **Keyboard shortcuts**: Space to play/pause, Escape to close modals, S for face search, X for face extraction
+- **Optimized streaming**: Byte-range HTTP requests for instant seeking
+
+### Keyboard Shortcuts
+
+**Global Shortcuts**:
+- `/`: Focus search box
+- **Ctrl+Alt+C** (⌘+⌥+C on Mac): Clear filters and return to collection
+- **Ctrl+Alt+E** (⌘+⌥+E on Mac): Switch to explorer view
+- **Ctrl+Alt+H** (⌘+⌥+H on Mac): Show keyboard shortcuts help
+
+**Video Player Shortcuts**:
+- Space: Play/pause
+- ←/→: Seek backward/forward 10 seconds
+- T: Capture thumbnail from current frame
+- C: Copy current frame to clipboard
+- S: Quick face search from current frame
+- X: Open face extraction modal
+- Escape: Close video modal
+
+## Development Guidelines
+
+### Backend Development
+
+- **Async/await patterns**: All database operations are async (`AsyncSession`, `await`)
+- **SQLAlchemy ORM**: Use `select()` for queries, relationship loading
+  - Example: `result = await session.execute(select(Video).where(Video.category == cat))`
+  - Use `selectinload()` for eager loading relationships (avoid N+1 queries)
+- **Security**: Always validate file paths with `.resolve()` and check against root directory
+  - Example: `if not str(full_path).startswith(str(root_resolved)): raise HTTPException(403)`
+- **Error handling**: Use `HTTPException` with proper status codes (404, 400, 403, 500)
+- **Pydantic models**: Define request/response models (e.g., `MoveVideoRequest`, `RenameVideoRequest`)
+- **Dependency injection**: Get database sessions via `Depends(get_db)`
+- **Thumbnail operations**: Use `ThumbnailDatabase` singleton for BLOB operations
+- **Metadata extraction**: Use `ffprobe` via `asyncio.create_subprocess_exec` for video metadata
+- **File operations**: Always update filesystem first, then sync database
+- **Streaming**: Implement byte-range support for video seeking (HTTP 206 responses)
+- **Lifespan management**: Use `@asynccontextmanager` for startup/shutdown in `main.py`
+
+### Frontend Development
+
+- **Vanilla JavaScript only**: ES6+ features, no frameworks (React, Vue, etc.)
+- **Modern CSS**: Use CSS Grid/Flexbox for layouts, CSS variables for theming
+- **Component Style**: Methods in ClipperApp create and return DOM elements
+  - Example: `createVideoCard(video)` returns a configured card element
+- **Error handling**: Wrap all `fetch()` calls in try/catch with user-friendly messages
+- **Responsive design**: Mobile-first approach, breakpoints for tablet/desktop
+- **Cache busting**: After thumbnail operations, append `?t=${Date.now()}&bustCache=${Math.random()}`
+- **State management**: ClipperApp class holds all state, no external store
+  - Use `Set()` for selected items tracking (fast add/remove/has operations)
+  - Store video data in `this.videos` (displayed) and `this.allVideos` (unfiltered)
+- **Bulk operations**: Process in batches (5 parallel for tags, sequential for moves)
+- **Metadata formatting**: Use helper methods to format durations, sizes, resolutions
+- **API communication**: All endpoints accessed via `fetch()` with JSON payloads
+- **User feedback**: Show loading states, success/error messages, toast notifications
+
+### Database Changes
+
+- **Models**: Define in `backend/database.py` using SQLAlchemy declarative base
+- **Migrations**: Add migration logic to `migrate_database()` function in `database.py`
+  - Check for column existence with `PRAGMA table_info(table_name)`
+  - Add columns with `ALTER TABLE table_name ADD COLUMN column_name TYPE`
+- **Testing**: Test with both empty databases and populated databases
+- **Independence**: Main and thumbnail databases evolve independently
+- **No downtime**: Migrations run on startup before accepting requests
+- **Cascade Deletes**: Use `cascade="all, delete-orphan"` in relationships for proper cleanup
+  - Example: FaceID has cascade relationships to both FaceEncoding and VideoFace
+  - Foreign keys must have `ondelete='CASCADE'` in Column definition
+  - Enables SQLite foreign key constraints with `PRAGMA foreign_keys=ON`
+
+**Example migration**:
+```python
+async def migrate_database():
+    async with engine.begin() as conn:
+        result = await conn.execute(text("PRAGMA table_info(videos)"))
+        columns = [row[1] for row in result.fetchall()]
+
+        if 'new_column' not in columns:
+            await conn.execute(text("ALTER TABLE videos ADD COLUMN new_column VARCHAR"))
+```
+
+**Example cascade relationship**:
+```python
+class FaceID(Base):
+    __tablename__ = "face_ids"
+    id = Column(Integer, primary_key=True)
+
+    # Cascade delete to both encodings and video_faces
+    encodings = relationship("FaceEncoding", back_populates="face", cascade="all, delete-orphan")
+    video_faces = relationship("VideoFace", back_populates="face", cascade="all, delete-orphan")
+
+class VideoFace(Base):
+    __tablename__ = "video_faces"
+    face_id = Column(Integer, ForeignKey('face_ids.id', ondelete='CASCADE'), nullable=False)
+
+    # Use back_populates to match FaceID relationship
+    face = relationship("FaceID", back_populates="video_faces")
+```
+
+### Adding New Features
+
+1. **Backend**:
+   - Add endpoint in `main.py` (FastAPI route)
+   - Implement logic in `video_service.py` (VideoService class)
+   - Update models in `database.py` if needed
+   - Add Pydantic models for request/response validation
+
+2. **Frontend**:
+   - Add method to ClipperApp class in `app.js`
+   - Update UI in `index.html` if needed
+   - Style with `styles.css`
+
+3. **Database**:
+   - Modify models in `database.py`
+   - Add migration in `migrate_database()`
+   - Test migration with existing data
+
+## Key Design Principles
+
+### Filesystem as Source of Truth
+- **Physical operations**: Video files are physically moved when reorganizing via API
+- **Sync order**: Filesystem changes happen first, database updates follow
+- **Reconciliation**: Scan operations with `sync_db=true` reconcile database with filesystem
+- **Categories from folders**: Top-level folders become categories, subfolders preserved in path
+- **No orphans**: `prune_missing=true` removes database entries for deleted files
+
+### Minimal Dependencies
+- **Python dependencies**: FastAPI, SQLAlchemy, aiosqlite (see `backend/requirements.txt`)
+  - No Django, Flask, or heavy frameworks
+  - No ORM alternatives (SQLAlchemy only)
+- **System dependencies**: ffmpeg for thumbnail generation only
+  - No ImageMagick, GraphicsMagick, or other image processors
+- **Frontend**: No JavaScript build tools or npm packages required
+  - No webpack, vite, babel, or bundlers
+  - No React, Vue, Angular, or frameworks
+  - Pure vanilla JavaScript and CSS
+
+### Self-Hosted
+- **No external services**: No cloud storage, CDNs, or third-party APIs
+- **No authentication services**: Local access only (add your own auth if needed)
+- **No analytics**: No telemetry or tracking
+- **Offline capable**: Local mode works without internet (after initial page load)
+
+### Performance First
+- **Large collections**: Optimized for thousands of videos
+  - Pagination with infinite scroll
+  - Database indexes on common queries
+  - Async operations prevent blocking
+- **Thumbnail database**: Reduces filesystem I/O, enables atomic operations
+- **Cache busting**: Prevents stale thumbnails without sacrificing browser cache
+- **Local mode**: Direct file access bypasses server for video playback
+
+### Simple Deployment
+- **Single environment variable**: `CLIPPER_ROOT_DIRECTORY` to get started
+- **Auto-creation**: Databases and directories created automatically on first run
+- **No build process**: No compilation, bundling, or minification required
+- **No database setup**: SQLite files created automatically, migrations run on startup
+- **No web server**: uvicorn included, runs standalone
+
+## Troubleshooting
+
+### Common Issues
+
+#### 1. Thumbnails not generating
+**Symptoms**: Placeholder images instead of video thumbnails
+
+**Solutions**:
+- Check FFmpeg installation: `ffmpeg -version`
+- Verify video file is readable and not corrupted
+- Check server logs for ffmpeg errors
+- Try manual generation: `curl -X POST "http://localhost:8000/api/thumbnails/generate/1"`
+- Ensure write permissions in `.clipper/` directory
+
+#### 2. Videos not appearing
+**Symptoms**: Empty video list or missing videos
+
+**Solutions**:
+- Check file permissions on video directory
+- Verify `CLIPPER_ROOT_DIRECTORY` is set correctly
+- Check `excluded_folders` doesn't exclude your videos
+- Run manual scan: `curl "http://localhost:8000/scan?sync_db=true"`
+- Check file extensions are `.mp4` (case-insensitive)
+- Look for errors in console: `cd backend && python main.py`
+
+#### 3. Database errors
+**Symptoms**: 500 errors, database locked, or permission errors
+
+**Solutions**:
+- Ensure write permissions in `{ROOT}/.clipper/` directory
+- Check disk space available
+- Stop other Clipper instances (only one can write to DB)
+- Delete and regenerate: Remove `.clipper/` folder, restart server
+- Check logs for SQLite errors
+
+#### 4. Videos won't play in local mode
+**Symptoms**: Black screen, "file not found", or CORS errors
+
+**Solutions**:
+- Check browser compatibility (use Firefox or Safari)
+- For Chrome/Edge: Launch with `--allow-file-access-from-files`
+- Enable hybrid mode for automatic fallback: `export CLIPPER_HYBRID_MODE=true`
+- Verify file paths are absolute and accessible
+- Check browser console for security errors
+
+#### 5. Port already in use
+**Symptoms**: "Address already in use" error on startup
+
+**Solutions**:
+- Change port: `export CLIPPER_PORT=9000`
+- Kill existing process: `lsof -ti:8000 | xargs kill -9`
+- Check for other services on port 8000
+
+#### 6. Face recognition not working
+**Symptoms**: Face detection fails or searches return no results
+
+**Solutions**:
+- Ensure InsightFace models are downloaded to `~/.insightface/`
+- Check face-api.js models are loaded in frontend
+- Verify face image quality (clear, front-facing, well-lit)
+- Build face catalog with 5-10 encodings per face first
+- Check browser console for JavaScript errors
+
+### Server Health Check
+
+```bash
+# Check if backend is running
+curl http://localhost:8000/health
+# Expected: {"status": "ok"}
+
+# Check video count
+curl http://localhost:8000/videos?limit=1
+# Expected: JSON with videos array
+
+# Restart backend
+cd backend && python main.py
+
+# Check Python dependencies
+pip install -r backend/requirements.txt
+
+# Verify FFmpeg
+ffmpeg -version
+```
+
+### Debug Mode
+
+Enable debug mode for detailed logs:
+
+```bash
+export CLIPPER_DEBUG=true
+cd backend && python main.py
+```
+
+Debug mode provides:
+- Detailed SQL query logs
+- Stack traces for errors
+- Request/response logging
+- FFmpeg command output
+
+### Performance Issues
+
+If experiencing slow performance:
+
+1. **Database indexing**: SQLite automatically indexes primary keys and unique columns
+2. **Pagination**: Use `limit` and `offset` parameters to load fewer videos
+3. **Thumbnail generation**: Generate in batches, not all at once
+4. **Local mode**: Use local file mode for faster video loading
+5. **Excluded folders**: Add large non-video folders to `CLIPPER_EXCLUDED_FOLDERS`
+
+## Tech Stack Summary
+
+- **Backend**: Python 3.12+, FastAPI 0.104.1, SQLAlchemy 2.0.23, uvicorn
+- **Database**: SQLite with aiosqlite (async), dual databases (main + thumbnails)
+- **Frontend**: Vanilla JavaScript (ES6+), HTML5, CSS3 (Grid/Flexbox), face-api.js
+- **Video Processing**: FFmpeg (thumbnail generation, metadata extraction)
+- **Face Recognition**: InsightFace 0.7.3 with ONNX Runtime (512-D face embeddings)
+- **Computer Vision**: OpenCV 4.8.1, Pillow 10.1.0 (image processing, perceptual hashing)
+- **Deployment**: Self-hosted, no external services, single Python process
+
+## Recent Updates (v18)
+
+### Video Editor - Pro Edition (v18)
+
+#### 🎬 Pro Video Editor - Professional Timeline-Based Interface
+
+- **Added**: Revolutionary new Pro Video Editor with intuitive direct-manipulation interface
+  - **Visual Timeline**: Drag IN/OUT handles directly on timeline (no more input fields)
+    - Draggable blue handles for start and end points
+    - Click anywhere on timeline to seek instantly
+    - Real-time playback head shows current position
+    - Selected range highlighted in blue with visual feedback
+    - Time labels update live as you drag
+  - **Keyboard Shortcuts**: Professional frame-accurate editing
+    - **Space**: Play/Pause video
+    - **←/→**: Navigate forward/backward by frame (1/30 second)
+    - **Shift + ←/→**: Jump 1 second increments
+    - **I**: Set IN point at current playback position
+    - **O**: Set OUT point at current playback position
+    - **C**: Toggle crop mode on/off
+    - **Enter**: Process video immediately
+    - **Escape**: Exit Pro Editor
+  - **Crop Toggle with Visual Presets**: Modern switch-based interface
+    - Beautiful animated toggle switch for enabling crop
+    - Visual preset buttons: 📱 9:16, ⬜ 1:1, 📺 16:9, 🎯 Custom
+    - Active preset highlighted with blue glow
+    - Real-time crop preview with dimensions display
+  - **Quality Presets**: Fast (stream copy), Balanced, High (re-encoding)
+  - **Output Location**: Choose between EDITED folder or same folder as source
+  - **Auto-Import After Edit**: Automatically scans and refreshes destination folder
+
+### Mobile Enhancements (v18)
+
+- **Ultra-Compact Controls**: Optimized button sizes for mobile screens
+- **Responsive Layout**: Auto-adjusts control placement for small screens
+- **Progress Modal**: Mobile-friendly video processing with live updates
+- **Hidden Metadata**: Video metadata hidden in header on mobile for cleaner layout
+- **Touch-Optimized**: Large touch targets and improved spacing
+
+### Smart Delete System (v18)
+
+- **Two-Tier Deletion**: Trash folder for reversible deletion, then permanent deletion
+  - From regular folders: "🗑️ Move to Trash" → moves to DELETE folder
+  - From DELETE folder: "⚠️ Delete Permanently" → permanently deletes from disk
+- **Safety Features**: Custom confirmation modal for permanent deletion
+- **Recovery Workflow**: Videos in DELETE folder can be moved back to any folder
+
+## Recent Updates (v15)
+
+### Cache Management & Performance Improvements
+- **Force Refresh Buttons**: Manual cache refresh at any level
+  - **Main folder list**: 🔄 Refresh button at top of folder explorer
+    - Refreshes folder structure, scan status, and fingerprint stats from disk
+    - [frontend/app.js:5081-5088, 6800-6823](frontend/app.js#L5081-L5088)
+  - **Inside folder**: 🔄 Refresh button in folder header
+    - Reloads videos from disk and updates browser cache
+    - Clears stale cached data for current folder
+    - [frontend/app.js:6825-6883](frontend/app.js#L6825-L6883)
+- **Auto-refresh After Scan**: Automatically refreshes folder view when scan completes
+  - Only refreshes if currently viewing the scanned folder
+  - Eliminates need for manual page reload to see new videos
+  - [frontend/app.js:6910-6917](frontend/app.js#L6910-L6917)
+- **Lazy Loading Optimization**: Significantly faster initial page load
+  - Explorer view no longer loads all videos upfront (deferred until needed)
+  - Videos loaded on-demand when navigating to folders
+  - Full video list only loaded when switching to collection/series view
+  - [frontend/app.js:188-246, 4785-4827](frontend/app.js#L188-L246)
+
+### File Management Improvements
+- **Sanitize Filename**: New context menu option to clean problematic filenames
+  - Fixes playback issues caused by special characters (apostrophes, quotes, etc.)
+  - Shows before/after preview in confirmation dialog
+  - Replaces: `'`, `"`, `` ` ``, `<`, `>`, `|`, `?`, `*`, `:`, `/`, `\` with hyphens
+  - Removes non-ASCII characters and cleans up multiple hyphens
+  - Example: `"In-Law's.mp4"` → `"In-Law-s.mp4"`
+  - [frontend/app.js:8815-8818, 8931-9018](frontend/app.js#L8815-L8818)
+
+### Video Editor Enhancements
+- **Fixed Crop Functionality**: Crop parameters now properly sent to backend
+  - Frontend calculates and sends `crop_width` and `crop_height` for all presets
+  - Backend properly applies crop via ffmpeg filter
+  - [frontend/app.js:18104-18169](frontend/app.js#L18104-L18169)
+- **Interactive Crop Box**: Full resize capability with corner handles
+  - Drag center to move, drag corners to resize
+  - Real-time coordinate updates with minimum 50px constraint
+  - [frontend/app.js:17783-17966](frontend/app.js#L17783-L17966)
+- **Custom Crop Mode**: Free-form resizing with any aspect ratio
+  - [frontend/app.js:17658-17781](frontend/app.js#L17658-L17781)
+- **Fixed Crop Overlay Positioning**: Accounts for letterbox/pillarbox in video display
+  - [frontend/app.js:17576-17610](frontend/app.js#L17576-L17610)
+
+### M3U8 Download Improvements
+- **yt-dlp Fallback**: Two-tier download strategy with automatic fallback
+  - Primary: ffmpeg (fast, stream copy, no re-encoding)
+  - Fallback: yt-dlp with enhanced format and native HLS downloader
+  - Checkbox option: "🔄 Try yt-dlp fallback if ffmpeg fails"
+  - [frontend/index.html:1492-1497](frontend/index.html#L1492-L1497), [backend/m3u8_downloader.py:97-227](backend/m3u8_downloader.py#L97-L227)
+
+### UI/UX Fixes
+- Fixed context menu persisting after opening video editor
+- Context menu now closes automatically when entering video editor
+
+## Changelog
+
+For detailed version history and recent changes, see [CHANGELOG.md](CHANGELOG.md).
+
+## License
+
+Hobby project - modify as needed for your own use.
