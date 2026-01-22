@@ -7266,9 +7266,6 @@ class ClipperApp {
         return folders;
     }
 
-        return folders;
-    }
-
     createFolderSuggestionItem(path, displayName, icon, isNew = false) {
         const item = document.createElement('div');
         item.className = `tag folder-suggestion ${isNew ? 'new-folder' : ''}`;
