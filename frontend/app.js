@@ -11738,10 +11738,19 @@ class ClipperApp {
             // Step 4: Force reload videos with aggressive cache busting
             const videos = await this.api.getVideosByFolder(folderName, true);
             // Ensure videos is always an array
-            this.allVideos = Array.isArray(videos) ? videos : (videos?.videos || []);
-            // Note: Don't reset hasLoadedFullCollection - the cache (allVideosCatalog) is still valid
-            this.videos = Array.isArray(videos) ? videos : (videos?.videos || []);
+            const freshVideos = Array.isArray(videos) ? videos : (videos?.videos || []);
+            this.allVideos = freshVideos;
+            this.videos = freshVideos;
             console.log(`🔄 Reloaded ${this.videos.length} videos from API`);
+
+            // Step 4b: Update allVideosCatalog to remove deleted videos from this folder
+            // This ensures collection view shows correct data after folder refresh
+            if (this.allVideosCatalog && this.allVideosCatalog.length > 0) {
+                // Remove old videos from this folder, add fresh ones
+                const otherFolderVideos = this.allVideosCatalog.filter(v => v.category !== folderName);
+                this.allVideosCatalog = otherFolderVideos.concat(freshVideos);
+                console.log(`📦 Updated collection cache: removed deleted videos from ${folderName}, total: ${this.allVideosCatalog.length}`);
+            }
 
             // Step 5: Clear DOM image elements to force reload
             this.clearImageElementsForFolder(folderName);
@@ -12800,8 +12809,8 @@ class ClipperApp {
             // Show results
             console.log(successMessage)
 
-            // Reload videos to reflect changes (preserve current view and filters)
-            await this.loadAllVideosFlat();
+            // Reload videos to reflect changes - FORCE reload to clear cache of deleted videos
+            await this.loadAllVideosFlat(true);
             this.applyFilters();
 
             // Reload scan status and folder structure
