@@ -8740,6 +8740,11 @@ class ClipperApp {
             this.applySorting();
             this.renderVideoGrid();
             this.updateLoadMoreButton();
+            // Re-populate and enable filters since we have data
+            this.populateSeriesFilter();
+            this.populateYearFilter();
+            this.populateChannelFilter();
+            this.enableAllFilters();
             return;
         }
 
