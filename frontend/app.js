@@ -6233,6 +6233,27 @@ class ClipperApp {
             this.saveSettingsToStorage();
         });
 
+        // ESC key clears search and resets results
+        searchInputEl.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+
+                // Clear search
+                searchInputEl.value = '';
+                this.currentSearchQuery = '';
+
+                // Blur the input
+                searchInputEl.blur();
+
+                // Re-apply filters (will show all results since search is empty)
+                this.debouncedFilter();
+                this.saveSettingsToStorage();
+
+                console.log('🔍 Search cleared via ESC');
+            }
+        });
+
         tagFilterEl.addEventListener('change', (e) => {
             this.currentTagFilter = e.target.value;
             this.debouncedFilter();
