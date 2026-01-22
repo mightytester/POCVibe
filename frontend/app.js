@@ -8731,10 +8731,11 @@ class ClipperApp {
         const videoGrid = document.getElementById('videoGrid');
         if (!videoGrid) return;
 
-        // Check if FULL collection is already loaded (not just folder videos)
-        if (this.hasLoadedFullCollection && this.allVideos && this.allVideos.length > 0) {
-            // Full collection already loaded - just render them with pagination
-            console.log(`📺 Full collection already loaded (${this.allVideos.length} total) - displaying with pagination`);
+        // Check if FULL collection was previously loaded (stored in allVideosCatalog)
+        if (this.hasLoadedFullCollection && this.allVideosCatalog && this.allVideosCatalog.length > 0) {
+            // Full collection already loaded - restore from cache and render
+            console.log(`📺 Restoring full collection from cache (${this.allVideosCatalog.length} total)`);
+            this.allVideos = this.allVideosCatalog; // Restore from cache
             this.videos = this.allVideos;
             this.resetPagination();
             this.applySorting();
@@ -9010,9 +9011,12 @@ class ClipperApp {
     async loadAllVideosFlat(forceReload = false) {
         // Load ALL videos regardless of category/folder
         try {
-            // OPTIMIZATION: Skip loading if FULL collection already loaded (not just folder videos)
-            if (!forceReload && this.hasLoadedFullCollection && this.allVideos && this.allVideos.length > 0) {
-                console.log(`📦 Using cached full collection: ${this.allVideos.length} videos already loaded`);
+            // OPTIMIZATION: Skip loading if FULL collection already cached (in allVideosCatalog)
+            if (!forceReload && this.hasLoadedFullCollection && this.allVideosCatalog && this.allVideosCatalog.length > 0) {
+                console.log(`📦 Restoring from cached full collection: ${this.allVideosCatalog.length} videos`);
+
+                // Restore from cache
+                this.allVideos = this.allVideosCatalog;
 
                 // Still populate filters and apply them
                 this.populateSeriesFilter();
@@ -11600,7 +11604,7 @@ class ClipperApp {
             this.videos = validVideos;
             // ✅ IMPORTANT: Set allVideos too so face filtering works in folder view
             this.allVideos = validVideos;
-            this.hasLoadedFullCollection = false; // Reset - we only have folder videos, not full collection
+            // Note: Don't reset hasLoadedFullCollection - the cache (allVideosCatalog) is still valid
             this.currentPage = 0;
             this.displayedVideos = [];
 
@@ -11661,7 +11665,7 @@ class ClipperApp {
             const videos = await this.api.getVideosByFolder(folderName, true);
             // Ensure videos is always an array
             this.allVideos = Array.isArray(videos) ? videos : (videos?.videos || []);
-            this.hasLoadedFullCollection = false; // Reset - we only have folder videos
+            // Note: Don't reset hasLoadedFullCollection - the cache (allVideosCatalog) is still valid
             this.videos = Array.isArray(videos) ? videos : (videos?.videos || []);
             console.log(`🔄 Reloaded ${this.videos.length} videos from API`);
 
@@ -12470,7 +12474,7 @@ class ClipperApp {
             console.log(`📂 Loading videos for category: ${folderName}`);
             const data = await this.api.getVideosByFolder(folderName, true);
             this.allVideos = data.videos || [];
-            this.hasLoadedFullCollection = false; // Reset - we only have folder videos
+            // Note: Don't reset hasLoadedFullCollection - the cache (allVideosCatalog) is still valid
             console.log(`📊 Loaded ${this.allVideos.length} videos from ${folderName}`);
 
             // Smart default: Random sort for single folder view (mix it up!)
