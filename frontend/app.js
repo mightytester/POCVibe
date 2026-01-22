@@ -26,6 +26,7 @@ class ClipperApp {
         this.currentView = 'explorer'; // 'explorer', 'list', or 'series' (changed default to explorer)
         this.videos = [];
         this.allVideos = []; // Store all videos for filtering (category-specific or all)
+        this.hasLoadedFullCollection = false; // Track if allVideos contains the FULL collection (vs just folder videos)
         this.allVideosCatalog = []; // Store COMPLETE video catalog across entire library (for face searching)
         this.categories = {};
         this.scrollPositions = {}; // Store scroll positions for each view
@@ -8730,10 +8731,10 @@ class ClipperApp {
         const videoGrid = document.getElementById('videoGrid');
         if (!videoGrid) return;
 
-        // Check if videos are already loaded
-        if (this.allVideos && this.allVideos.length > 0) {
-            // Videos already loaded - just render them with pagination
-            console.log(`📺 Videos already loaded (${this.allVideos.length} total) - displaying with pagination`);
+        // Check if FULL collection is already loaded (not just folder videos)
+        if (this.hasLoadedFullCollection && this.allVideos && this.allVideos.length > 0) {
+            // Full collection already loaded - just render them with pagination
+            console.log(`📺 Full collection already loaded (${this.allVideos.length} total) - displaying with pagination`);
             this.videos = this.allVideos;
             this.resetPagination();
             this.applySorting();
@@ -9004,9 +9005,9 @@ class ClipperApp {
     async loadAllVideosFlat(forceReload = false) {
         // Load ALL videos regardless of category/folder
         try {
-            // OPTIMIZATION: Skip loading if already loaded (lazy loading from explorer view)
-            if (!forceReload && this.allVideos && this.allVideos.length > 0) {
-                console.log(`📦 Using cached videos: ${this.allVideos.length} videos already loaded`);
+            // OPTIMIZATION: Skip loading if FULL collection already loaded (not just folder videos)
+            if (!forceReload && this.hasLoadedFullCollection && this.allVideos && this.allVideos.length > 0) {
+                console.log(`📦 Using cached full collection: ${this.allVideos.length} videos already loaded`);
 
                 // Still populate filters and apply them
                 this.populateSeriesFilter();
@@ -9019,6 +9020,7 @@ class ClipperApp {
             console.log(`📋 Loading ALL videos in flat list (forceReload: ${forceReload})`);
             const data = await this.api.getAllVideos(true);
             this.allVideos = data.videos || [];
+            this.hasLoadedFullCollection = true; // Mark that we have the FULL collection
             this.allVideosCatalog = data.videos || []; // Store complete catalog for face searching
             console.log(`📊 Loaded ${this.allVideos.length} total videos from all folders`);
 
@@ -11593,6 +11595,7 @@ class ClipperApp {
             this.videos = validVideos;
             // ✅ IMPORTANT: Set allVideos too so face filtering works in folder view
             this.allVideos = validVideos;
+            this.hasLoadedFullCollection = false; // Reset - we only have folder videos, not full collection
             this.currentPage = 0;
             this.displayedVideos = [];
 
@@ -11653,6 +11656,7 @@ class ClipperApp {
             const videos = await this.api.getVideosByFolder(folderName, true);
             // Ensure videos is always an array
             this.allVideos = Array.isArray(videos) ? videos : (videos?.videos || []);
+            this.hasLoadedFullCollection = false; // Reset - we only have folder videos
             this.videos = Array.isArray(videos) ? videos : (videos?.videos || []);
             console.log(`🔄 Reloaded ${this.videos.length} videos from API`);
 
@@ -12461,6 +12465,7 @@ class ClipperApp {
             console.log(`📂 Loading videos for category: ${folderName}`);
             const data = await this.api.getVideosByFolder(folderName, true);
             this.allVideos = data.videos || [];
+            this.hasLoadedFullCollection = false; // Reset - we only have folder videos
             console.log(`📊 Loaded ${this.allVideos.length} videos from ${folderName}`);
 
             // Smart default: Random sort for single folder view (mix it up!)
