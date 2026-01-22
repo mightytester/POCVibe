@@ -1,8 +1,10 @@
 """Folder management and folder groups endpoints."""
 
 import hashlib
+import json
 import logging
 import time
+import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -20,6 +22,25 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["folders"])
 
 
+def parse_folders(folders_str):
+    """Parse folders string - handles both JSON array and comma-separated formats."""
+    if not folders_str:
+        return []
+    try:
+        if folders_str.startswith('['):
+            return json.loads(folders_str)
+        return [f.strip() for f in folders_str.split(',') if f.strip()]
+    except:
+        return [f.strip() for f in folders_str.split(',') if f.strip()]
+
+
+def serialize_folders(folders_list):
+    """Serialize folders list to JSON string."""
+    if not folders_list:
+        return '[]'
+    return json.dumps(folders_list)
+
+
 @router.get("/folder-structure")
 async def get_folder_structure_groups(db: AsyncSession = Depends(get_db)):
     """Get folder structure with groups for sidebar navigation."""
@@ -33,7 +54,7 @@ async def get_folder_structure_groups(db: AsyncSession = Depends(get_db)):
 
     # Get all folder groups
     result = await db.execute(
-        select(FolderGroup).order_by(FolderGroup.position)
+        select(FolderGroup).order_by(FolderGroup.order)
     )
     groups = result.scalars().all()
 
@@ -41,7 +62,7 @@ async def get_folder_structure_groups(db: AsyncSession = Depends(get_db)):
     grouped_folders = set()
     for group in groups:
         if group.folders:
-            grouped_folders.update(group.folders.split(','))
+            grouped_folders.update(parse_folders(group.folders))
 
     # Find ungrouped folders
     ungrouped_folders = [f for f in physical_folders if f not in grouped_folders]
@@ -51,9 +72,9 @@ async def get_folder_structure_groups(db: AsyncSession = Depends(get_db)):
             "id": g.id,
             "name": g.name,
             "icon": g.icon,
-            "folders": g.folders.split(',') if g.folders else [],
-            "position": g.position,
-            "is_expanded": bool(g.is_expanded)
+            "folders": parse_folders(g.folders),
+            "position": g.order,
+            "is_expanded": True
         } for g in groups],
         "ungrouped_folders": ungrouped_folders,
         "all_folders": physical_folders
@@ -64,7 +85,7 @@ async def get_folder_structure_groups(db: AsyncSession = Depends(get_db)):
 async def get_folder_groups(db: AsyncSession = Depends(get_db)):
     """Get all folder groups."""
     result = await db.execute(
-        select(FolderGroup).order_by(FolderGroup.position)
+        select(FolderGroup).order_by(FolderGroup.order)
     )
     groups = result.scalars().all()
 
@@ -72,9 +93,9 @@ async def get_folder_groups(db: AsyncSession = Depends(get_db)):
         "id": g.id,
         "name": g.name,
         "icon": g.icon,
-        "folders": g.folders.split(',') if g.folders else [],
-        "position": g.position,
-        "is_expanded": bool(g.is_expanded),
+        "folders": parse_folders(g.folders),
+        "position": g.order,
+        "is_expanded": True,
         "created_at": g.created_at,
         "updated_at": g.updated_at
     } for g in groups]
@@ -97,19 +118,19 @@ async def create_folder_group(
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Group with this name already exists")
 
-    # Get max position
-    max_pos_result = await db.execute(
-        select(FolderGroup.position).order_by(FolderGroup.position.desc()).limit(1)
+    # Get max order
+    max_order_result = await db.execute(
+        select(FolderGroup.order).order_by(FolderGroup.order.desc()).limit(1)
     )
-    max_pos = max_pos_result.scalar() or 0
+    max_order = max_order_result.scalar() or 0
 
-    # Create group
+    # Create group with UUID id
     group = FolderGroup(
+        id=str(uuid.uuid4()),
         name=name,
         icon=body.get('icon', '📁'),
-        folders=','.join(body.get('folders', [])),
-        position=max_pos + 1,
-        is_expanded=1,
+        folders=serialize_folders(body.get('folders', [])),
+        order=max_order + 1,
         created_at=time.time(),
         updated_at=time.time()
     )
@@ -121,20 +142,23 @@ async def create_folder_group(
         "id": group.id,
         "name": group.name,
         "icon": group.icon,
-        "folders": group.folders.split(',') if group.folders else [],
-        "position": group.position,
-        "is_expanded": bool(group.is_expanded)
+        "folders": parse_folders(group.folders),
+        "position": group.order,
+        "is_expanded": True
     }
 
 
 @router.put("/folder-groups/{group_id}")
 async def update_folder_group(
-    group_id: int,
+    group_id: str,
     body: dict,
     db: AsyncSession = Depends(get_db)
 ):
     """Update a folder group."""
-    group = await db.get(FolderGroup, group_id)
+    result = await db.execute(
+        select(FolderGroup).where(FolderGroup.id == group_id)
+    )
+    group = result.scalar_one_or_none()
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
 
@@ -156,10 +180,7 @@ async def update_folder_group(
         group.icon = body['icon']
 
     if 'folders' in body:
-        group.folders = ','.join(body['folders']) if body['folders'] else ''
-
-    if 'is_expanded' in body:
-        group.is_expanded = 1 if body['is_expanded'] else 0
+        group.folders = serialize_folders(body['folders']) if body['folders'] else '[]'
 
     group.updated_at = time.time()
 
@@ -170,19 +191,22 @@ async def update_folder_group(
         "id": group.id,
         "name": group.name,
         "icon": group.icon,
-        "folders": group.folders.split(',') if group.folders else [],
-        "position": group.position,
-        "is_expanded": bool(group.is_expanded)
+        "folders": parse_folders(group.folders),
+        "position": group.order,
+        "is_expanded": True
     }
 
 
 @router.delete("/folder-groups/{group_id}")
 async def delete_folder_group(
-    group_id: int,
+    group_id: str,
     db: AsyncSession = Depends(get_db)
 ):
     """Delete a folder group."""
-    group = await db.get(FolderGroup, group_id)
+    result = await db.execute(
+        select(FolderGroup).where(FolderGroup.id == group_id)
+    )
+    group = result.scalar_one_or_none()
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
 
@@ -194,7 +218,7 @@ async def delete_folder_group(
 
 @router.patch("/folder-groups/{group_id}/reorder")
 async def reorder_folder_group(
-    group_id: int,
+    group_id: str,
     body: dict,
     db: AsyncSession = Depends(get_db)
 ):
@@ -203,15 +227,18 @@ async def reorder_folder_group(
     if new_position is None:
         raise HTTPException(status_code=400, detail="Position is required")
 
-    group = await db.get(FolderGroup, group_id)
+    result = await db.execute(
+        select(FolderGroup).where(FolderGroup.id == group_id)
+    )
+    group = result.scalar_one_or_none()
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
 
-    old_position = group.position
+    old_position = group.order
 
     # Get all groups
     result = await db.execute(
-        select(FolderGroup).order_by(FolderGroup.position)
+        select(FolderGroup).order_by(FolderGroup.order)
     )
     all_groups = result.scalars().all()
 
@@ -219,22 +246,22 @@ async def reorder_folder_group(
     if new_position > old_position:
         # Moving down
         for g in all_groups:
-            if g.id != group_id and old_position < g.position <= new_position:
-                g.position -= 1
+            if g.id != group_id and old_position < g.order <= new_position:
+                g.order -= 1
     else:
         # Moving up
         for g in all_groups:
-            if g.id != group_id and new_position <= g.position < old_position:
-                g.position += 1
+            if g.id != group_id and new_position <= g.order < old_position:
+                g.order += 1
 
-    group.position = new_position
+    group.order = new_position
     group.updated_at = time.time()
 
     await db.commit()
 
     # Return updated list
     result = await db.execute(
-        select(FolderGroup).order_by(FolderGroup.position)
+        select(FolderGroup).order_by(FolderGroup.order)
     )
     groups = result.scalars().all()
 
@@ -242,9 +269,9 @@ async def reorder_folder_group(
         "id": g.id,
         "name": g.name,
         "icon": g.icon,
-        "folders": g.folders.split(',') if g.folders else [],
-        "position": g.position,
-        "is_expanded": bool(g.is_expanded)
+        "folders": parse_folders(g.folders),
+        "position": g.order,
+        "is_expanded": True
     } for g in groups]
 
 

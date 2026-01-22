@@ -176,7 +176,16 @@ async def get_thumbnail_stats():
     thumbnail_db = get_thumbnail_db()
 
     if not thumbnail_db:
-        raise HTTPException(status_code=503, detail="Thumbnail database not initialized")
+        return {
+            "thumbnail_count": 0,
+            "cache_size_mb": 0,
+            "ffmpeg_available": False,
+            "error": "Thumbnail database not initialized"
+        }
 
-    stats = await thumbnail_db.get_stats()
-    return stats
+    count, size_mb = await thumbnail_db.get_cache_stats()
+    return {
+        "thumbnail_count": count,
+        "cache_size_mb": size_mb,
+        "ffmpeg_available": thumbnail_db.ffmpeg_available
+    }
