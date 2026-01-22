@@ -8262,7 +8262,14 @@ class ClipperApp {
         /**
          * Reset collection view to default state (like first navigation)
          * Clears search + all filters, shows all videos
+         * Optimized to avoid unnecessary re-rendering if already showing full collection
          */
+        // Check if we're already showing the full collection with no filters
+        const hasActiveFilters = this.currentSearchQuery || this.currentTagFilter ||
+            this.currentSeriesFilter || this.currentYearFilter ||
+            this.currentChannelFilter || this.currentRatingFilter ||
+            this.currentFavoriteFilter || (this.currentFolderFilter && this.currentFolderFilter.length > 0);
+
         // Clear search input
         const searchInput = document.getElementById('searchInput');
         if (searchInput) {
@@ -8303,27 +8310,33 @@ class ClipperApp {
         folderCheckboxes.forEach(cb => cb.checked = false);
 
         // Reset sort to default (modified/newest first)
+        const sortChanged = this.currentSort !== 'modified';
         this.currentSort = 'modified';
         const sortSelect = document.getElementById('sortSelect');
         if (sortSelect) sortSelect.value = 'modified';
 
-        // Restore full collection and render
-        if (this.hasLoadedFullCollection && this.allVideosCatalog && this.allVideosCatalog.length > 0) {
-            this.allVideos = this.allVideosCatalog;
-            this.videos = this.allVideos;
-            this.resetPagination();
-            this.applySorting();
-            this.renderVideoGrid();
-            this.updateLoadMoreButton();
+        // Only re-render if filters were active or sort changed
+        // This avoids thumbnail flashing when ESC is pressed with no active filters
+        if (hasActiveFilters || sortChanged) {
+            // Restore full collection and render
+            if (this.hasLoadedFullCollection && this.allVideosCatalog && this.allVideosCatalog.length > 0) {
+                this.allVideos = this.allVideosCatalog;
+                this.videos = this.allVideos;
+                this.resetPagination();
+                this.applySorting();
+                this.renderVideoGrid();
+                this.updateLoadMoreButton();
+            } else {
+                // If collection not loaded, trigger load
+                this.applyFilters();
+            }
+            console.log('🔄 Collection view reset to default (re-rendered)');
         } else {
-            // If collection not loaded, trigger load
-            this.applyFilters();
+            console.log('🔄 Collection view already at default state (no re-render needed)');
         }
 
         // Save the reset state
         this.saveSettingsToStorage();
-
-        console.log('🔄 Collection view reset to default');
     }
 
     async handleFiltersChanged() {
