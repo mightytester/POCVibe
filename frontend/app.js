@@ -420,7 +420,7 @@ class ClipperApp {
             // Only default to all folders on first load (no saved settings)
             // Otherwise, respect saved filter state (even if empty)
             if (this.isFirstLoad && (!this.currentFolderFilter || this.currentFolderFilter.length === 0)) {
-                const allFolders = Object.keys(this.folderStructure).filter(f => f !== '_root');
+                const allFolders = this.folderStructure.all_folders || [];
                 this.currentFolderFilter = [...allFolders];
                 console.log('📂 First load: defaulting to all folders');
             } else if (!this.isFirstLoad) {
@@ -488,14 +488,15 @@ class ClipperApp {
         try {
             const response = await fetch(`${this.apiBase}/folder-structure`);
             const data = await response.json();
-            this.folderStructure = data.structure || {};
+            // API returns: {groups: [...], ungrouped_folders: [...], all_folders: [...]}
+            this.folderStructure = data;
             console.log('📁 Folder structure loaded:', this.folderStructure);
 
             // Populate folder filter dropdown
             this.populateFolderFilter();
         } catch (error) {
             console.warn('⚠️ Failed to load folder structure:', error);
-            this.folderStructure = {};
+            this.folderStructure = { groups: [], ungrouped_folders: [], all_folders: [] };
         }
     }
 
@@ -507,8 +508,8 @@ class ClipperApp {
         try {
             const response = await fetch(`${this.apiBase}/folder-groups`);
             const data = await response.json();
-            this.folderGroups = data.groups || [];
-            this.systemFolders = data.system_folders || [];
+            // API returns array directly: [{id, name, icon, folders, ...}, ...]
+            this.folderGroups = Array.isArray(data) ? data : [];
             console.log('📊 Folder groups loaded:', this.folderGroups);
         } catch (error) {
             console.warn('⚠️ Failed to load folder groups:', error);
@@ -2496,7 +2497,7 @@ class ClipperApp {
         this.currentFavoriteFilter = false;
 
         // Select ALL folders (opposite of the default empty state)
-        const allFolders = Object.keys(this.folderStructure).filter(f => f !== '_root');
+        const allFolders = this.folderStructure.all_folders || [];
         this.currentFolderFilter = [...allFolders];
         const checkboxes = document.querySelectorAll('#folderFilterList input[type="checkbox"]');
         checkboxes.forEach(cb => cb.checked = true);
@@ -6804,7 +6805,7 @@ class ClipperApp {
         if (!folderGrid) return;
 
         // Get all folders from folderStructure
-        let allFolders = Object.keys(this.folderStructure).filter(f => f !== '_root');
+        let allFolders = this.folderStructure.all_folders || [];
 
         // Filter folders by character length: >= 3 and < 16
         allFolders = allFolders.filter(f => f.length >= 3 && f.length < 16);
@@ -7250,28 +7251,20 @@ class ClipperApp {
         const folders = [];
 
         // Add main categories (top-level folders) from folderStructure
-        Object.keys(this.folderStructure).forEach(category => {
-            if (category !== '_root') {
-                folders.push({
-                    path: category,
-                    displayName: category,
-                    isCategory: true
-                });
-            }
+        const allFolders = this.folderStructure.all_folders || [];
+        allFolders.forEach(category => {
+            folders.push({
+                path: category,
+                displayName: category,
+                isCategory: true
+            });
         });
 
-        // Add subfolders from folder structure
-        Object.entries(this.folderStructure).forEach(([category, structure]) => {
-            if (structure.subfolders) {
-                Object.keys(structure.subfolders).forEach(subfolder => {
-                    folders.push({
-                        path: `${category}/${subfolder}`,
-                        displayName: `${category} / ${subfolder}`,
-                        isCategory: false
-                    });
-                });
-            }
-        });
+        // Subfolder support removed - API doesn't return subfolder data
+        // If needed in future, add separate API call for subfolder discovery
+
+        return folders;
+    }
 
         return folders;
     }
@@ -7839,7 +7832,7 @@ class ClipperApp {
         folderList.innerHTML = '';
 
         // Get all top-level folders (categories) from folder structure
-        const folders = Object.keys(this.folderStructure).filter(folder => folder !== '_root');
+        const folders = this.folderStructure.all_folders || [];
 
         // Sort folders alphabetically
         folders.sort((a, b) => a.localeCompare(b));
@@ -8329,7 +8322,7 @@ class ClipperApp {
 
     updateFolderFilterButton() {
         const btn = document.getElementById('folderFilterBtn');
-        const allFolders = Object.keys(this.folderStructure).filter(f => f !== '_root');
+        const allFolders = this.folderStructure.all_folders || [];
 
         if (this.currentFolderFilter.length === 0) {
             btn.textContent = 'No Folders ▾';
