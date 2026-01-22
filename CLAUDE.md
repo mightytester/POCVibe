@@ -586,6 +586,16 @@ See `backend/requirements.txt`:
 - opencv-python==4.8.1.78 (computer vision)
 - imagehash==4.3.1 (perceptual hashing)
 - Pillow==10.1.0
+- numpy==1.24.3
+
+**⚠️ Frozen Packages (DO NOT UPGRADE)**
+
+The following packages have strict version requirements due to compatibility with InsightFace face recognition. Do not upgrade these:
+```
+onnxruntime==1.16.3
+opencv-python==4.8.1.78
+numpy==1.24.3
+```
 
 ### Frontend Dependencies
 
