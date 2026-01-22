@@ -15,6 +15,18 @@ class ClipperApp {
         // context-menu-module.js handles video and face context menus
         this.contextMenu = new window.ContextMenuModule(this);
 
+        // actor-management-module.js handles actor modal and autocomplete
+        this.actorModule = new window.ActorManagementModule(this);
+
+        // video-player-module.js handles video playback and controls
+        this.videoPlayer = new window.VideoPlayerModule(this);
+
+        // tag-management-module.js handles tag modal and autocomplete
+        this.tagModule = new window.TagManagementModule(this);
+
+        // duplicate-review-module.js handles duplicate detection and review
+        this.duplicateModule = new window.DuplicateReviewModule(this);
+
         // face-recognition-module.js handles face detection, search, and cataloging (lazy)
         this._faceModule = null; // Lazy initialized
 
@@ -66,10 +78,7 @@ class ClipperApp {
         // Display mode state
         this.verticalMode = false; // Whether vertical video layout is active
 
-        // Duplicate review state
-        this.duplicateViewActive = false; // Whether in duplicate review mode
-        this.duplicateViewData = null; // { originalVideo, matches: [{video, similarity_percent, min_distance}] }
-        this.previousViewState = null; // Store state before entering duplicate view
+        // Duplicate review state - delegated to duplicateModule via getter/setters below
 
         // Face filter state
         this.activeFaceFilter = null; // { faceId, faceName } when filtering by face
@@ -2803,29 +2812,13 @@ class ClipperApp {
         return mimeTypes[extension] || 'video/mp4';
     }
 
-    // Helper methods for handling Duplicates Review View with modals
+    // Helper methods for handling Duplicates Review View with modals - delegated to duplicateModule
     hideDuplicatesReviewIfActive() {
-        const duplicatesReviewView = document.getElementById('duplicatesReviewView');
-        if (duplicatesReviewView && duplicatesReviewView.style.display === 'flex') {
-            this.wasInDuplicatesReview = true;
-            duplicatesReviewView.style.display = 'none';
-            console.log('👁️ Temporarily hiding Duplicates Review View for modal');
-            return true;
-        }
-        return false;
+        return this.duplicateModule.hideDuplicatesReviewIfActive()
     }
 
     restoreDuplicatesReviewIfNeeded() {
-        if (this.wasInDuplicatesReview) {
-            const duplicatesReviewView = document.getElementById('duplicatesReviewView');
-            if (duplicatesReviewView) {
-                duplicatesReviewView.style.display = 'flex';
-                console.log('👁️ Restored Duplicates Review View after modal close');
-            }
-            this.wasInDuplicatesReview = false;
-            return true;
-        }
-        return false;
+        return this.duplicateModule.restoreDuplicatesReviewIfNeeded()
     }
 
     hideVideoPlayer(isTransition = false) {
@@ -9730,6 +9723,22 @@ class ClipperApp {
         }
     }
 
+    // ==================== TAG MODAL FUNCTIONS ====================
+    // Note: TagManagementModule is available as this.tagModule for gradual migration
+    // Legacy currentVideoTags state is managed by the module
+    get currentVideoTags() { return this.tagModule.currentVideoTags }
+    set currentVideoTags(val) { this.tagModule.currentVideoTags = val }
+
+    // Duplicate review state - delegated to duplicateModule
+    get duplicateViewActive() { return this.duplicateModule.duplicateViewActive }
+    set duplicateViewActive(val) { this.duplicateModule.duplicateViewActive = val }
+    get duplicateViewData() { return this.duplicateModule.duplicateViewData }
+    set duplicateViewData(val) { this.duplicateModule.duplicateViewData = val }
+    get previousViewState() { return this.duplicateModule.previousViewState }
+    set previousViewState(val) { this.duplicateModule.previousViewState = val }
+    get duplicatesReviewActive() { return this.duplicateModule.duplicatesReviewActive }
+    set duplicatesReviewActive(val) { this.duplicateModule.duplicatesReviewActive = val }
+
     async showTagModal(videoId, videoName) {
         this.currentVideo = { id: videoId, name: videoName };
 
@@ -9754,7 +9763,7 @@ class ClipperApp {
         tagInput.focus();
     }
 
-    setupTagAutocomplete() {
+    setupTagAutocomplete_OLD() {
         const tagInput = document.getElementById('tagInput');
 
         // Remove existing event listeners to prevent duplicates
@@ -10721,8 +10730,22 @@ class ClipperApp {
     }
 
     // ==================== ACTOR MODAL FUNCTIONS ====================
+    // Delegated to ActorManagementModule
 
     async showActorModal(videoId, videoName) {
+        return this.actorModule.showActorModal(videoId, videoName)
+    }
+
+    hideActorModal() {
+        return this.actorModule.hideActorModal()
+    }
+
+    // Legacy currentVideoActors state (now managed by module, kept for backward compatibility)
+    get currentVideoActors() { return this.actorModule.currentVideoActors }
+    set currentVideoActors(val) { this.actorModule.currentVideoActors = val }
+
+    /* OLD showActorModal - Replaced by ActorManagementModule
+    async showActorModal_OLD(videoId, videoName) {
         this.currentVideo = { id: videoId, name: videoName };
 
         // Hide Duplicates Review View if active
@@ -10885,7 +10908,7 @@ class ClipperApp {
         }
     }
 
-    hideActorModal() {
+    hideActorModal_OLD() {
         document.getElementById('actorModal').style.display = 'none';
         document.getElementById('actorInput').value = '';
         this.currentVideo = null;
@@ -10894,6 +10917,7 @@ class ClipperApp {
         // Restore Duplicates Review View if it was hidden
         this.restoreDuplicatesReviewIfNeeded();
     }
+    END OF OLD Actor Modal code */
 
     async showSceneDescriptionModal(videoId, videoName) {
         this.currentVideo = { id: videoId, name: videoName };
@@ -11155,9 +11179,48 @@ class ClipperApp {
         }
     }
 
+    // Actor Render/Add/Remove Methods - Delegate to ActorManagementModule
     renderCurrentActors() {
-        const actorsList = document.getElementById('currentActorsList');
-        actorsList.innerHTML = '';
+        return this.actorModule.renderCurrentActors()
+    }
+
+    renderAllActorSuggestions(filterQuery = '') {
+        return this.actorModule.renderAllActorSuggestions(filterQuery)
+    }
+
+    async addActorFromSuggestion(actor) {
+        return this.actorModule.addActorFromSuggestion(actor)
+    }
+
+    async addActor() {
+        return this.actorModule.addActor()
+    }
+
+    async removeActor(actorId) {
+        return this.actorModule.removeActor(actorId)
+    }
+
+    updateVideoCardActors(videoId) {
+        return this.actorModule.updateVideoCardActors(videoId)
+    }
+
+    filterByActor(actorName) {
+        // TODO: Implement actor filtering (similar to tag filtering)
+        console.log('Filter by actor:', actorName)
+        console.log(`Filtering by actor: ${actorName} (coming soon)`)
+    }
+
+    toTitleCase(str) {
+        return this.actorModule.toTitleCase(str)
+    }
+
+    // Note: Old actor modal code has been moved to actor-management-module.js
+    // The following commented code is preserved for reference only:
+    // - renderCurrentActors, renderAllActorSuggestions
+    // - addActorFromSuggestion, addActor, removeActor
+    // - updateVideoCardActors (now delegates to module)
+
+    /* OLD renderCurrentActors (removed - see actor-management-module.js)
 
         if (this.currentVideoActors.length === 0) {
             actorsList.innerHTML = '<p style="color: #9ca3af; font-size: 13px;">No actors yet</p>';
@@ -11175,7 +11238,7 @@ class ClipperApp {
         });
     }
 
-    renderAllActorSuggestions(filterQuery = '') {
+    renderAllActorSuggestions_OLD(filterQuery = '') {
         const suggestionsGrid = document.getElementById('actorSuggestionsGrid');
         if (!suggestionsGrid) return;
 
@@ -11415,18 +11478,7 @@ class ClipperApp {
             });
         }
     }
-
-    filterByActor(actorName) {
-        // TODO: Implement actor filtering (similar to tag filtering)
-        console.log('Filter by actor:', actorName);
-        console.log(`Filtering by actor: ${actorName} (coming soon)`)
-    }
-
-    toTitleCase(str) {
-        return str.replace(/\w\S*/g, (txt) => {
-            return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
-        });
-    }
+    */
 
     /**
      * Generate a consistent, light, glassy color for a folder name
