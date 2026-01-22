@@ -948,25 +948,54 @@ async def delete_video_permanent(video_id: int, db: AsyncSession = Depends(get_d
 
 
 @router.get("/api/metadata/suggestions")
-async def get_metadata_suggestions(db: AsyncSession = Depends(get_db)):
-    """Get unique values for metadata fields (series, channel, etc.) for autocomplete."""
+async def get_metadata_suggestions(field: str = None, db: AsyncSession = Depends(get_db)):
+    """Get unique values for metadata fields (series, channel, year) for autocomplete."""
     from sqlalchemy import distinct
 
     try:
-        series_result = await db.execute(
-            select(distinct(Video.series)).where(Video.series.isnot(None))
-        )
-        series = [s[0] for s in series_result.fetchall() if s[0]]
+        if field == "channel":
+            result = await db.execute(
+                select(distinct(Video.channel)).where(Video.channel.isnot(None))
+            )
+            values = sorted([r[0] for r in result.fetchall() if r[0]])
+            return {"suggestions": values, "total": len(values)}
 
-        channel_result = await db.execute(
-            select(distinct(Video.channel)).where(Video.channel.isnot(None))
-        )
-        channels = [c[0] for c in channel_result.fetchall() if c[0]]
+        elif field == "series":
+            result = await db.execute(
+                select(distinct(Video.series)).where(Video.series.isnot(None))
+            )
+            values = sorted([r[0] for r in result.fetchall() if r[0]])
+            return {"suggestions": values, "total": len(values)}
 
-        return {
-            "series": sorted(series),
-            "channels": sorted(channels)
-        }
+        elif field == "year":
+            result = await db.execute(
+                select(distinct(Video.year)).where(Video.year.isnot(None))
+            )
+            values = sorted([r[0] for r in result.fetchall() if r[0]])
+            return {"suggestions": [str(v) for v in values], "total": len(values)}
+
+        else:
+            # Return all suggestions if no field specified
+            series_result = await db.execute(
+                select(distinct(Video.series)).where(Video.series.isnot(None))
+            )
+            series = sorted([s[0] for s in series_result.fetchall() if s[0]])
+
+            channel_result = await db.execute(
+                select(distinct(Video.channel)).where(Video.channel.isnot(None))
+            )
+            channels = sorted([c[0] for c in channel_result.fetchall() if c[0]])
+
+            year_result = await db.execute(
+                select(distinct(Video.year)).where(Video.year.isnot(None))
+            )
+            years = sorted([y[0] for y in year_result.fetchall() if y[0]])
+
+            return {
+                "series": series,
+                "channels": channels,
+                "years": [str(y) for y in years]
+            }
     except Exception as e:
         logger.error(f"Error fetching metadata suggestions: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch suggestions: {str(e)}")
