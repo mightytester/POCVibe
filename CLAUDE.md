@@ -264,7 +264,11 @@ backend/
 
 - **`frontend/app.js`** (32,541 lines): Single ClipperApp class managing entire UI
   - State management for videos, selections, filters, views
-  - Dual view system: Explorer (folder browsing) vs Collection (list view)
+  - **Three view types**: Explorer, Collection (list), Series
+  - **Explorer view has two states**:
+    - Root level: Shows folder cards in `folderExplorer` container (videoGrid hidden)
+    - Inside folder: Shows video cards in `videoGrid` container (folderExplorer hidden)
+    - Function `loadAndShowVideosInFolder()` acts as the bridge between these states
   - Context-aware pagination (full display in folders, paginated in collection)
   - 30+ event listeners for UI interactions
   - Bulk operations (multi-select, batch tagging/moving)
@@ -452,6 +456,88 @@ All state lives in `ClipperApp` class:
 - Use `this.videos` for displayed videos
 - Use `this.allVideos` for unfiltered collection
 - Use `Set()` for selection tracking (fast add/remove/has)
+
+### View State Preservation Pattern
+
+When implementing full-screen modal views (Face Catalog, Duplicates Review), always save and restore view state:
+
+```javascript
+// In showSpecialView() - Save state before entering
+async showSpecialView() {
+    console.log('📸 Entering Special View');
+
+    // Save current view state
+    this.previousViewState = {
+        videos: [...this.videos],
+        allVideos: [...this.allVideos],
+        currentSearchQuery: this.currentSearchQuery,
+        currentTagFilter: this.currentTagFilter,
+        currentFolderFilter: [...this.currentFolderFilter],
+        currentSort: this.currentSort,
+        currentView: this.currentView,
+        currentCategory: this.currentCategory,
+        currentSubcategory: this.currentSubcategory
+    };
+
+    // Hide all view containers
+    document.getElementById('videoGrid').style.display = 'none';
+    document.getElementById('folderExplorer').style.display = 'none';
+    document.getElementById('seriesView').style.display = 'none';
+    document.querySelector('.controls').style.display = 'none';
+
+    // Show special view
+    document.getElementById('specialView').style.display = 'flex';
+    document.body.classList.add('video-modal-open');
+}
+
+// In exitSpecialView() - Restore state when leaving
+exitSpecialView() {
+    console.log('📸 Exiting Special View');
+
+    // Hide special view
+    document.getElementById('specialView').style.display = 'none';
+    document.body.classList.remove('video-modal-open');
+
+    // Restore previous view state
+    if (this.previousViewState) {
+        this.videos = [...this.previousViewState.videos];
+        this.allVideos = [...this.previousViewState.allVideos];
+        this.currentSearchQuery = this.previousViewState.currentSearchQuery;
+        this.currentTagFilter = this.previousViewState.currentTagFilter;
+        this.currentFolderFilter = [...this.previousViewState.currentFolderFilter];
+        this.currentSort = this.previousViewState.currentSort;
+
+        // Show controls
+        document.querySelector('.controls').style.display = 'block';
+
+        // Restore view type
+        if (this.previousViewState.currentView === 'explorer') {
+            this.currentView = 'explorer';
+            this.currentCategory = this.previousViewState.currentCategory;
+            this.currentSubcategory = this.previousViewState.currentSubcategory;
+            document.getElementById('folderExplorer').style.display = 'block';
+            this.renderFolderExplorer();
+        } else if (this.previousViewState.currentView === 'series') {
+            this.currentView = 'series';
+            document.getElementById('seriesView').style.display = 'block';
+            this.renderSeriesView();
+        } else {
+            this.currentView = 'list';
+            document.getElementById('videoGrid').style.display = 'grid';
+            this.renderVideoGrid();
+        }
+
+        this.previousViewState = null;
+    }
+}
+```
+
+**Key Points:**
+- Save all 9 state properties to `this.previousViewState` before entering
+- Explicitly hide all view containers when entering
+- Detect and restore correct view type (explorer/series/list) when exiting
+- Call appropriate render function for restored view
+- Clear `previousViewState` after restoration
 
 ### API Communication
 
