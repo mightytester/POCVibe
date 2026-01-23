@@ -13,7 +13,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### High-Level Structure
 
 - **Backend** (`backend/`): FastAPI server with async SQLite using SQLAlchemy ORM
-- **Frontend** (`frontend/`): Vanilla JavaScript SPA (~33,000 lines) with no build tools
+- **Frontend** (`frontend/`): Vanilla JavaScript SPA (~37,000 lines) with no build tools
 - **Database**: Dual SQLite databases in `{ROOT}/.clipper/`
   - `clipper.db`: Video metadata, tags, actors, faces, fingerprints
   - `thumbnails.db`: Binary thumbnail BLOBs
@@ -33,7 +33,7 @@ backend/
 ├── main.py              # App setup, lifespan, router mounting
 ├── config.py            # Multi-root configuration
 ├── database.py          # SQLAlchemy ORM models + migrations
-├── routers/             # 15 FastAPI APIRouter modules
+├── routers/             # 16 FastAPI APIRouter modules
 │   ├── videos.py        # Video CRUD, streaming, metadata
 │   ├── thumbnails.py    # Thumbnail generation/retrieval
 │   ├── faces.py         # Face recognition
@@ -46,12 +46,16 @@ backend/
 │   ├── downloads.py     # M3U8/SOCKS downloads
 │   ├── editor.py        # Video editing
 │   ├── folders.py       # Folder operations
+│   ├── audio.py         # Audio extraction/processing
+│   ├── maintenance.py   # Database cleanup operations
 │   └── health.py        # Health checks
 ├── schemas/             # Pydantic request/response models
 └── utils/               # Shared utilities
 ```
 
 ### Frontend Modular Architecture
+
+The frontend has been progressively modularized from a monolithic `app.js` into discrete, maintainable modules. The modularization follows a dependency hierarchy where core utilities are loaded first, followed by feature modules that depend on them.
 
 **Core Utilities (No Dependencies)**
 - `frontend/api-client.js`: Centralized API client class for all backend communication
@@ -62,6 +66,18 @@ backend/
 - `frontend/face-recognition-module.js`: Face detection ('S' key), batch extraction ('X' key)
 - `frontend/video-editor-module.js`: Timeline UI, cut/crop operations
 - `frontend/bulk-operations-module.js`: Multi-select bulk operations
+- `frontend/context-menu-module.js`: Right-click context menu for videos
+- `frontend/actor-management-module.js`: Actor catalog and face-actor associations
+- `frontend/video-player-module.js`: Video playback controls and fullscreen
+- `frontend/tag-management-module.js`: Tag CRUD operations and color picker
+- `frontend/duplicate-review-module.js`: Visual duplicate comparison and deletion
+- `frontend/bulk-edit-module.js`: Batch metadata editing
+- `frontend/curation-mode-module.js`: Curation workflow UI
+- `frontend/image-viewer-module.js`: Image gallery and lightbox
+- `frontend/download-module.js`: M3U8/SOCKS download UI
+- `frontend/sorting-module.js`: Sorting, filtering, view switching (~659 lines)
+- `frontend/scan-system-module.js`: Scan queue, folder scanning, batch thumbnails (~932 lines)
+- `frontend/fingerprint-module.js`: Fingerprint generation, duplicate detection (~1,038 lines)
 
 **Module Loading Order in index.html**
 ```html
@@ -74,6 +90,18 @@ backend/
 <script src="/static/face-recognition-module.js"></script>
 <script src="/static/video-editor-module.js"></script>
 <script src="/static/bulk-operations-module.js"></script>
+<script src="/static/context-menu-module.js"></script>
+<script src="/static/actor-management-module.js"></script>
+<script src="/static/video-player-module.js"></script>
+<script src="/static/tag-management-module.js"></script>
+<script src="/static/duplicate-review-module.js"></script>
+<script src="/static/bulk-edit-module.js"></script>
+<script src="/static/curation-mode-module.js"></script>
+<script src="/static/image-viewer-module.js"></script>
+<script src="/static/download-module.js"></script>
+<script src="/static/sorting-module.js"></script>
+<script src="/static/scan-system-module.js"></script>
+<script src="/static/fingerprint-module.js"></script>
 
 <!-- Main application -->
 <script src="/static/app.js"></script>
