@@ -13,7 +13,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### High-Level Structure
 
 - **Backend** (`backend/`): FastAPI server with async SQLite using SQLAlchemy ORM
-- **Frontend** (`frontend/`): Vanilla JavaScript SPA (~37,000 lines) with no build tools
+- **Frontend** (`frontend/`): Vanilla JavaScript SPA (~37,500 lines, main app.js now ~22,200 lines) with no build tools
 - **Database**: Dual SQLite databases in `{ROOT}/.clipper/`
   - `clipper.db`: Video metadata, tags, actors, faces, fingerprints
   - `thumbnails.db`: Binary thumbnail BLOBs
@@ -61,8 +61,13 @@ The frontend has been progressively modularized from a monolithic `app.js` into 
 - `frontend/api-client.js`: Centralized API client class for all backend communication
 - `frontend/dom-cache.js`: DOM element caching system with automatic invalidation
 - `frontend/settings-storage.js`: LocalStorage persistence for app settings
+- `frontend/format-utils.js`: Formatting, parsing, and utility functions (time, size, filenames, colors)
 
 **Feature Modules (Depend on Core)**
+- `frontend/keyboard-shortcuts-module.js`: Global keyboard shortcuts and help modal (~315 lines)
+- `frontend/series-metadata-module.js`: Series/season/episode metadata, series view, filters (~527 lines)
+- `frontend/video-operations-module.js`: Video move, delete, rename operations (~1,270 lines)
+- `frontend/video-collection-module.js`: Video grid rendering, pagination, lazy loading (~500 lines)
 - `frontend/face-recognition-module.js`: Face detection ('S' key), batch extraction ('X' key)
 - `frontend/video-editor-module.js`: Timeline UI, cut/crop operations
 - `frontend/bulk-operations-module.js`: Multi-select bulk operations
@@ -78,6 +83,7 @@ The frontend has been progressively modularized from a monolithic `app.js` into 
 - `frontend/sorting-module.js`: Sorting, filtering, view switching (~659 lines)
 - `frontend/scan-system-module.js`: Scan queue, folder scanning, batch thumbnails (~932 lines)
 - `frontend/fingerprint-module.js`: Fingerprint generation, duplicate detection (~1,038 lines)
+- `frontend/navigation-module.js`: Navigation, breadcrumbs, folder explorer, folder groups (~1,489 lines)
 
 **Module Loading Order in index.html**
 ```html
@@ -85,8 +91,13 @@ The frontend has been progressively modularized from a monolithic `app.js` into 
 <script src="/static/dom-cache.js"></script>
 <script src="/static/api-client.js"></script>
 <script src="/static/settings-storage.js"></script>
+<script src="/static/format-utils.js"></script>
 
 <!-- Feature modules (depend on core) -->
+<script src="/static/keyboard-shortcuts-module.js"></script>
+<script src="/static/series-metadata-module.js"></script>
+<script src="/static/video-operations-module.js"></script>
+<script src="/static/video-collection-module.js"></script>
 <script src="/static/face-recognition-module.js"></script>
 <script src="/static/video-editor-module.js"></script>
 <script src="/static/bulk-operations-module.js"></script>
@@ -102,6 +113,7 @@ The frontend has been progressively modularized from a monolithic `app.js` into 
 <script src="/static/sorting-module.js"></script>
 <script src="/static/scan-system-module.js"></script>
 <script src="/static/fingerprint-module.js"></script>
+<script src="/static/navigation-module.js"></script>
 
 <!-- Main application -->
 <script src="/static/app.js"></script>
@@ -109,8 +121,11 @@ The frontend has been progressively modularized from a monolithic `app.js` into 
 
 **Integration Pattern**
 - Main `app.js` instantiates modules: `this.api = new ClipperAPIClient(this.apiBase)`
-- Modules receive `app` reference: `new FaceRecognitionModule(this)`
-- Modules use `this.app.api` for API calls, `this.app.dom` for cached DOM access
+- Core utilities initialized: `this.format = new FormatUtils({ editedVideoSubstrings: [...] })`
+- Feature modules receive `app` reference: `this.keyboardModule = new KeyboardShortcutsModule(this)`
+- Modules use `this.app.api` for API calls, `this.app.dom` for cached DOM access, `this.app.format` for utilities
+- Some modules auto-initialize (keyboard module sets up shortcuts, series module manages state)
+- Delegated methods in app.js call module methods: `showSeriesModalFromContext() { this.seriesModule.showSeriesModalFromContext() }`
 
 ## Development Commands
 
