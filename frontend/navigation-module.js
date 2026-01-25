@@ -295,10 +295,10 @@ class NavigationModule {
             return;
         }
 
-        // Get all physical folders (not just scanned ones)
+        // Get all physical folders from folder structure
         let physicalFolders = [];
-        if (this.app.scanStatus && typeof this.app.scanStatus === 'object') {
-            physicalFolders = Object.keys(this.app.scanStatus);
+        if (this.app.folderStructure?.all_folders && Array.isArray(this.app.folderStructure.all_folders)) {
+            physicalFolders = this.app.folderStructure.all_folders;
         }
 
         // Sort folders alphabetically (A-Z)
@@ -1460,14 +1460,12 @@ class NavigationModule {
             // Show loading overlay
             this.app.showRefreshLoadingOverlay();
 
-            // Fetch scan status to get latest folder list
-            const statusResponse = await fetch(`${this.app.apiBase}/scan/status`);
-            if (!statusResponse.ok) throw new Error('Failed to fetch scan status');
+            // Load folder structure from backend
+            await this.app.loadFolderStructure();
+            await this.app.loadFolderGroups();
 
-            const statusData = await statusResponse.json();
-            this.app.scanStatus = statusData.scan_status || {};
-
-            console.log(`✅ Refreshed folder list: ${Object.keys(this.app.scanStatus).length} folders found`);
+            const folderCount = this.app.folderStructure?.all_folders?.length || 0;
+            console.log(`✅ Refreshed folder list: ${folderCount} folders found`);
 
             // Re-render folder explorer
             this.renderFolderExplorer();
