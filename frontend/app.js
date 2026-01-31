@@ -85,6 +85,12 @@ class ClipperApp {
         // library-manager.js handles root switching and state reset
         this.libraryManager = new window.LibraryManager(this);
 
+        // selection-manager.js handles video selection logic
+        this.selectionManager = new window.SelectionManager(this);
+
+        // filter-manager.js handles search and filtering logic
+        this.filterManager = new window.FilterManager(this);
+
         // face-recognition-module.js handles face detection, search, and cataloging (lazy)
         this._faceModule = null; // Lazy initialized
 
@@ -690,52 +696,7 @@ class ClipperApp {
     playVideo(video) { this.videoPlayer.playVideo(video) }
     playVideoFromData(videoDataString) { this.videoPlayer.playVideoFromData(videoDataString) }
 
-    filterByTag(tagName) {
-        // Navigate to a separate tag results view instead of filtering in-place
-        console.log(`🏷️ Filtering by tag: ${tagName}`);
-
-        // Use the complete catalog for searching
-        let searchSource = this.allVideosCatalog && this.allVideosCatalog.length > 0 ? this.allVideosCatalog : this.allVideos;
-
-        if (!searchSource || searchSource.length === 0) {
-            searchSource = this.allVideos;
-        }
-
-        // Filter videos containing this tag
-        const tagVideos = searchSource.filter(video => {
-            if (!video.tags) return false;
-            return video.tags.some(tag => tag.name === tagName);
-        });
-
-        console.log(`📊 Found ${tagVideos.length} video(s) with tag: ${tagName}`);
-
-        // Save current state for "back" button
-        this.previousView = {
-            view: this.currentView,
-            videos: this.videos,
-            currentCategory: this.currentCategory,
-            currentSubcategory: this.currentSubcategory,
-            currentSearch: this.currentSearch
-        };
-
-        // Hide main UI elements (using DOM cache)
-        const listViewControls = this.dom.get('listViewControls');
-        const folderExplorer = this.dom.get('folderExplorer');
-        const videoGrid = this.dom.get('videoGrid');
-        if (listViewControls) listViewControls.style.display = 'none';
-        if (folderExplorer) folderExplorer.style.display = 'none';
-        if (videoGrid) videoGrid.style.display = 'none';
-
-        // Switch to tag results view
-        this.currentView = 'tag-results';
-        this.videos = tagVideos;
-        this.currentTagFilter = tagName;
-
-        // Render tag results view with back button
-        this.renderTagResultsView(tagName);
-
-        console.log(`🏷️ Found ${tagVideos.length} video(s) with "${tagName}"`)
-    }
+    filterByTag(tagName) { return this.filterManager.filterByTag(tagName); }
 
     filterByFace(faceId, faceName) {
         // Navigate to a separate face results view instead of filtering in-place
@@ -892,54 +853,7 @@ class ClipperApp {
         }
     }
 
-    renderTagResultsView(tagName) {
-        /**
-         * Render a dedicated view for tag search results
-         */
-        const videoGrid = document.getElementById('videoGrid');
-        if (!videoGrid) return;
-
-        videoGrid.style.display = 'block';
-        videoGrid.innerHTML = `
-            <div style="padding: 20px 0;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 0 20px;">
-                    <div>
-                        <h2 style="margin: 0 0 5px 0; color: #111827;">🏷️ ${this.escapeHtml(tagName)}</h2>
-                        <p style="margin: 0; color: #6b7280; font-size: 14px;">
-                            Found ${this.videos.length} video${this.videos.length !== 1 ? 's' : ''}
-                        </p>
-                    </div>
-                    <button 
-                        onclick="app.goBackToPreviousView()" 
-                        style="
-                            padding: 10px 16px;
-                            background: #6366f1;
-                            color: white;
-                            border: none;
-                            border-radius: 6px;
-                            cursor: pointer;
-                            font-size: 14px;
-                            font-weight: 500;
-                        "
-                    >
-                        ← Back
-                    </button>
-                </div>
-                <div id="tag-results-grid" class="video-grid"></div>
-            </div>
-        `;
-
-        // Render videos in grid
-        const resultsGrid = document.getElementById('tag-results-grid');
-        if (resultsGrid) {
-            const fragment = document.createDocumentFragment();
-            this.videos.forEach(video => {
-                const card = this.createVideoCard(video);
-                fragment.appendChild(card);
-            });
-            resultsGrid.appendChild(fragment);
-        }
-    }
+    renderTagResultsView(tagName) { return this.filterManager.renderTagResultsView(tagName); }
 
     async linkFaceToVideo(faceId, videoId, detectionMethod = 'manual_search') {
         /**
@@ -1019,61 +933,7 @@ class ClipperApp {
         }
     }
 
-    clearFilters() {
-        // Dismiss all active toast notifications
-        this.dismissAllToasts();
-
-        // Clear search input
-        document.getElementById('searchInput').value = '';
-        this.currentSearchQuery = '';
-
-        // Clear tag filter
-        document.getElementById('tagFilter').value = '';
-        this.currentTagFilter = '';
-
-        // Clear ALL metadata filters
-        document.getElementById('seriesFilter').value = '';
-        this.currentSeriesFilter = '';
-
-        document.getElementById('yearFilter').value = '';
-        this.currentYearFilter = '';
-
-        document.getElementById('channelFilter').value = '';
-        this.currentChannelFilter = '';
-
-        document.getElementById('ratingFilter').value = '';
-        this.currentRatingFilter = '';
-
-        document.getElementById('favoriteFilter').checked = false;
-        this.currentFavoriteFilter = false;
-
-        // Select ALL folders (opposite of the default empty state)
-        // Get all folders from structure, or extract from cached videos if available
-        let allFolders = this.folderStructure.all_folders || [];
-        if (allFolders.length === 0 && this.allVideosCatalog && this.allVideosCatalog.length > 0) {
-            // Extract unique folder names from cached videos
-            const folderSet = new Set(this.allVideosCatalog.map(v => v.category).filter(Boolean));
-            allFolders = Array.from(folderSet);
-            console.log(`📂 Extracted ${allFolders.length} folders from cached videos`);
-        }
-        this.currentFolderFilter = [...allFolders];
-        const checkboxes = document.querySelectorAll('#folderFilterList input[type="checkbox"]');
-        checkboxes.forEach(cb => cb.checked = true);
-        document.getElementById('selectAllFolders').checked = true;
-        this.updateFolderFilterButton();
-
-        // Load correct view based on current view mode
-        if (this.currentView === 'list') {
-            // Collection View: Show all videos without folder filtering
-            this.showAllVideosInCollection();
-        } else {
-            // Explorer View: Load "All Videos" category
-            this.loadCategory('_all');
-        }
-
-        // Save cleared state to localStorage
-        this.saveSettingsToStorage();
-    }
+    clearFilters() { return this.filterManager.clearFilters(); }
 
     setupLazyLoading() { this.collectionModule.setupLazyLoading() }
 
@@ -3897,63 +3757,7 @@ class ClipperApp {
 
     renderVideoGridWithoutReset() { this.collectionModule.renderVideoGridWithoutReset() }
 
-    async performSearch(query, tagFilter = '') {
-        try {
-            const params = new URLSearchParams();
-
-            // Parse duration filter from query (format: duration:30-45)
-            let searchQuery = query;
-            let durationMin = null;
-            let durationMax = null;
-
-            if (query) {
-                const durationMatch = query.match(/duration:\s*(\d+)\s*-\s*(\d+)/i);
-                if (durationMatch) {
-                    durationMin = parseInt(durationMatch[1]);
-                    durationMax = parseInt(durationMatch[2]);
-                    // Remove duration filter from search query
-                    searchQuery = query.replace(/duration:\s*\d+\s*-\s*\d+/gi, '').trim();
-                    console.log(`⏱️ Duration filter: ${durationMin}s - ${durationMax}s`);
-                }
-            }
-
-            if (searchQuery) params.append('q', searchQuery);
-            if (tagFilter) params.append('tags', tagFilter);
-            if (durationMin !== null) params.append('duration_min', durationMin);
-            if (durationMax !== null) params.append('duration_max', durationMax);
-
-            // Only add category filter if not in "All Videos" mode
-            if (this.currentCategory && this.currentCategory !== "_all") {
-                params.append('category', this.currentCategory);
-            }
-
-            // Add subcategory filter if we're in a specific subfolder
-            if (this.currentSubcategory) {
-                params.append('subcategory', this.currentSubcategory);
-            }
-
-            const response = await fetch(`${this.apiBase}/search?${params}`);
-            let videos = await response.json();
-
-            // Apply folder filter if active (client-side filtering of search results)
-            // For search/tag filters: folder filter acts as additional constraint
-            // Empty folder filter = search all folders (don't constrain)
-            if (this.currentFolderFilter && this.currentFolderFilter.length > 0) {
-                videos = videos.filter(video => {
-                    return this.currentFolderFilter.includes(video.category);
-                });
-                console.log(`🔍 Search results filtered by ${this.currentFolderFilter.length} folder(s): ${videos.length} videos match`);
-            } else {
-                console.log(`🔍 Search results from all folders: ${videos.length} videos`);
-            }
-
-            this.videos = videos;
-            document.getElementById('videoGrid').innerHTML = '';
-            this.renderVideoGrid();
-        } catch (error) {
-            console.log('Search failed')
-        }
-    }
+    async performSearch(query, tagFilter = '') { return this.filterManager.performSearch(query, tagFilter); }
 
     resetCollectionView() {
         /**
@@ -4639,11 +4443,7 @@ class ClipperApp {
         return this.actorModule.updateVideoCardActors(videoId)
     }
 
-    filterByActor(actorName) {
-        // TODO: Implement actor filtering (similar to tag filtering)
-        console.log('Filter by actor:', actorName)
-        console.log(`Filtering by actor: ${actorName} (coming soon)`)
-    }
+    filterByActor(actorName) { return this.filterManager.filterByActor(actorName); }
 
     toTitleCase(str) {
         return this.actorModule.toTitleCase(str)
@@ -9281,79 +9081,15 @@ class ClipperApp {
         this.saveSettingsToStorage();
     }
 
-    toggleVideoSelection(videoId) {
-        // Validate videoId
-        if (videoId === null || videoId === undefined) {
-            console.error('❌ toggleVideoSelection called with null/undefined videoId');
-            return;
-        }
+    toggleVideoSelection(videoId) { return this.selectionManager.toggleVideoSelection(videoId); }
 
-        if (this.selectedVideos.has(videoId)) {
-            this.selectedVideos.delete(videoId);
-        } else {
-            this.selectedVideos.add(videoId);
-        }
+    updateBulkActionsBar() { return this.selectionManager.updateBulkActionsBar(); }
 
-        // Update the card's selected state
-        const card = document.querySelector(`[data-video-id="${videoId}"]`);
-        if (card) {
-            if (this.selectedVideos.has(videoId)) {
-                card.classList.add('selected');
-            } else {
-                card.classList.remove('selected');
-            }
-        }
+    selectAllVideos() { return this.selectionManager.selectAllVideos(); }
 
-        this.updateBulkActionsBar();
-    }
+    deselectAllVideos() { return this.selectionManager.deselectAllVideos(); }
 
-    updateBulkActionsBar() {
-        const bar = document.getElementById('bulkActionsBar');
-        const count = document.getElementById('selectionCount');
-
-        if (this.selectedVideos.size > 0) {
-            bar.style.display = 'block';
-            count.textContent = `${this.selectedVideos.size} selected`;
-        } else {
-            bar.style.display = 'none';
-        }
-    }
-
-    selectAllVideos() {
-        // Filter out null videos and those without IDs
-        const validVideos = this.videos.filter(video => video && video.id !== null && video.id !== undefined);
-
-        validVideos.forEach(video => {
-            this.selectedVideos.add(video.id);
-        });
-
-        // Clean up the videos array if we found null entries
-        if (validVideos.length < this.videos.length) {
-            console.warn(`⚠️ Found ${this.videos.length - validVideos.length} null/invalid videos in array, cleaning up...`);
-            this.videos = validVideos;
-        }
-
-        this.renderVideoGrid();
-        this.updateBulkActionsBar();
-    }
-
-    deselectAllVideos() {
-        this.selectedVideos.clear();
-        this.renderVideoGrid();
-        this.updateBulkActionsBar();
-    }
-
-    cancelSelection() {
-        this.selectionMode = false;
-        this.selectedVideos.clear();
-
-        const videoGrid = document.getElementById('videoGrid');
-        videoGrid.classList.remove('selection-mode');
-
-        this.updateBulkActionsBar();
-        this.renderVideoGrid();
-        this.updateSelectionModeRadio();
-    }
+    cancelSelection() { return this.selectionManager.cancelSelection(); }
 
     async showBulkTagModal() {
         if (this.selectedVideos.size === 0) {

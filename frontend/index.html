@@ -6,17 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Clipper - Video Manager</title>
     <link rel="stylesheet" href="/static/styles.css">
-    <script src="/static/config.js"></script>
-    <script>
-        // Override configuration for same-server setup
-        if (window.CLIPPER_CONFIG) {
-            window.CLIPPER_CONFIG.apiUrl = window.location.origin;
-        }
-    </script>
-    <!-- face-api.js for face detection -->
-    <script defer src="/static/face-api.min.js"></script>
-    <!-- CDN version (commented out for later use) -->
-    <!-- <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script> -->
+    <link rel="stylesheet" href="/static/styles.css">
 </head>
 
 <body>
@@ -2802,35 +2792,47 @@
         </div>
     </div>
 
+    <!-- External Libraries -->
+    <script src="/static/lib/config.js"></script>
+    <script>
+        // Override configuration for same-server setup
+        if (window.CLIPPER_CONFIG) {
+            window.CLIPPER_CONFIG.apiUrl = window.location.origin;
+        }
+    </script>
+    <script defer src="/static/lib/face-api.min.js"></script>
+
     <!-- Core utilities (no dependencies) -->
-    <script src="/static/dom-cache.js"></script>
-    <script src="/static/api-client.js"></script>
-    <script src="/static/settings-storage.js"></script>
-    <script src="/static/format-utils.js"></script>
+    <script src="/static/utils/dom-cache.js"></script>
+    <script src="/static/services/api-client.js"></script>
+    <script src="/static/utils/settings-storage.js"></script>
+    <script src="/static/utils/format-utils.js"></script>
 
     <!-- Feature modules (depend on core utilities) -->
-    <script src="/static/keyboard-shortcuts-module.js"></script>
-    <script src="/static/series-metadata-module.js"></script>
-    <script src="/static/video-operations-module.js"></script>
-    <script src="/static/video-collection-module.js"></script>
-    <script src="/static/face-recognition-module.js"></script>
-    <script src="/static/video-editor-module.js"></script>
-    <script src="/static/bulk-operations-module.js"></script>
-    <script src="/static/context-menu-module.js"></script>
-    <script src="/static/actor-management-module.js"></script>
-    <script src="/static/video-player-module.js"></script>
-    <script src="/static/tag-management-module.js"></script>
-    <script src="/static/duplicate-review-module.js"></script>
-    <script src="/static/bulk-edit-module.js"></script>
-    <script src="/static/curation-mode-module.js"></script>
-    <script src="/static/image-viewer-module.js"></script>
-    <script src="/static/download-module.js"></script>
-    <script src="/static/sorting-module.js"></script>
-    <script src="/static/scan-system-module.js"></script>
-    <script src="/static/fingerprint-module.js"></script>
+    <script src="/static/modules/keyboard-shortcuts-module.js"></script>
+    <script src="/static/modules/series-metadata-module.js"></script>
+    <script src="/static/modules/video-operations-module.js"></script>
+    <script src="/static/modules/video-collection-module.js"></script>
+    <script src="/static/modules/face-recognition-module.js"></script>
+    <script src="/static/modules/video-editor-module.js"></script>
+    <script src="/static/modules/bulk-operations-module.js"></script>
+    <script src="/static/modules/context-menu-module.js"></script>
+    <script src="/static/modules/actor-management-module.js"></script>
+    <script src="/static/modules/video-player-module.js"></script>
+    <script src="/static/modules/tag-management-module.js"></script>
+    <script src="/static/modules/duplicate-review-module.js"></script>
+    <script src="/static/modules/bulk-edit-module.js"></script>
+    <script src="/static/modules/curation-mode-module.js"></script>
+    <script src="/static/modules/image-viewer-module.js"></script>
+    <script src="/static/modules/download-module.js"></script>
+    <script src="/static/modules/sorting-module.js"></script>
+    <script src="/static/modules/scan-system-module.js"></script>
+    <script src="/static/modules/fingerprint-module.js"></script>
     <script src="/static/components/video-card-factory.js"></script>
     <script src="/static/managers/library-manager.js"></script>
-    <script src="/static/navigation-module.js"></script>
+    <script src="/static/managers/selection-manager.js"></script>
+    <script src="/static/managers/filter-manager.js"></script>
+    <script src="/static/modules/navigation-module.js"></script>
 
     <!-- Main application (depends on all modules) -->
     <script src="/static/app.js"></script>
