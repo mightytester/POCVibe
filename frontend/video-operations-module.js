@@ -576,9 +576,9 @@ class VideoOperationsModule {
      */
     async apiMoveVideo(videoId, targetCategory, newName = null, targetSubcategory = null) {
         try {
-            const requestBody = { category: targetCategory };
+            const requestBody = { target_category: targetCategory };
             if (newName) requestBody.new_name = newName;
-            if (targetSubcategory) requestBody.subcategory = targetSubcategory;
+            if (targetSubcategory) requestBody.target_subcategory = targetSubcategory;
 
             const response = await fetch(`${this.app.apiBase}/api/videos/${videoId}/move`, {
                 method: 'POST',

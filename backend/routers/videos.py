@@ -24,7 +24,7 @@ from routers.roots import get_thumbnail_db
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["videos"])
+router = APIRouter(prefix="/api/videos", tags=["videos"])
 
 
 def get_media_type_header(file_path: Path) -> str:
@@ -47,7 +47,7 @@ def get_media_type_header(file_path: Path) -> str:
     return media_types.get(extension, 'application/octet-stream')
 
 
-@router.get("/videos")
+@router.get("")
 async def get_videos(category: str = None, media_type: str = None, db: AsyncSession = Depends(get_db)):
     """Get all videos, optionally filtered by category."""
     thumbnail_db = get_thumbnail_db()
@@ -67,7 +67,7 @@ async def get_videos(category: str = None, media_type: str = None, db: AsyncSess
     }
 
 
-@router.get("/videos/{category}")
+@router.get("/{category}")
 async def get_videos_by_category(category: str, media_type: str = None, db: AsyncSession = Depends(get_db)):
     """Get all videos in a specific category (path parameter version)."""
     thumbnail_db = get_thumbnail_db()
@@ -114,27 +114,6 @@ async def get_videos_paginated(
         "page": page,
         "size": size,
         "total_pages": total_pages
-    }
-
-
-@router.get("/videos/{category}/{subcategory}")
-async def get_videos_by_subcategory(
-    category: str,
-    subcategory: str,
-    media_type: str = None,
-    db: AsyncSession = Depends(get_db)
-):
-    """Get videos in a specific category and subcategory with faces."""
-    thumbnail_db = get_thumbnail_db()
-    service = VideoService(db, thumbnail_db)
-    videos = await service.get_videos_by_subcategory(category, subcategory, media_type=media_type)
-
-    video_ids = [video.id for video in videos]
-    faces_map = await service.get_faces_for_videos(video_ids)
-
-    return {
-        "videos": [serialize_video(video, faces_map) for video in videos],
-        "count": len(videos)
     }
 
 
@@ -350,7 +329,7 @@ async def stream_video(category: str, video_path: str, request: Request):
     )
 
 
-@router.post("/videos/{video_id}/move")
+@router.post("/{video_id}/move")
 async def move_video(
     video_id: int,
     body: MoveVideoRequest,
@@ -398,7 +377,7 @@ async def move_video(
     }
 
 
-@router.post("/videos/{video_id}/rename")
+@router.post("/{video_id}/rename")
 async def rename_video(
     video_id: int,
     body: RenameVideoRequest,
@@ -969,52 +948,58 @@ async def delete_video_permanent(video_id: int, db: AsyncSession = Depends(get_d
 
 @router.get("/api/metadata/suggestions")
 async def get_metadata_suggestions(field: str = None, db: AsyncSession = Depends(get_db)):
-    """Get unique values for metadata fields (series, channel, year) for autocomplete."""
-    from sqlalchemy import distinct
+    """Get unique values for metadata fields (series, channel, year) for autocomplete with counts."""
+    from sqlalchemy import func
 
     try:
         if field == "channel":
             result = await db.execute(
-                select(distinct(Video.channel)).where(Video.channel.isnot(None))
+                select(Video.channel, func.count(Video.id)).where(Video.channel.isnot(None))
+                .group_by(Video.channel).order_by(Video.channel)
             )
-            values = sorted([r[0] for r in result.fetchall() if r[0]])
+            values = [{"value": r[0], "count": r[1]} for r in result.fetchall() if r[0]]
             return {"suggestions": values, "total": len(values)}
 
         elif field == "series":
             result = await db.execute(
-                select(distinct(Video.series)).where(Video.series.isnot(None))
+                select(Video.series, func.count(Video.id)).where(Video.series.isnot(None))
+                .group_by(Video.series).order_by(Video.series)
             )
-            values = sorted([r[0] for r in result.fetchall() if r[0]])
+            values = [{"value": r[0], "count": r[1]} for r in result.fetchall() if r[0]]
             return {"suggestions": values, "total": len(values)}
 
         elif field == "year":
             result = await db.execute(
-                select(distinct(Video.year)).where(Video.year.isnot(None))
+                select(Video.year, func.count(Video.id)).where(Video.year.isnot(None))
+                .group_by(Video.year).order_by(Video.year.desc())
             )
-            values = sorted([r[0] for r in result.fetchall() if r[0]])
-            return {"suggestions": [str(v) for v in values], "total": len(values)}
+            values = [{"value": str(r[0]), "count": r[1]} for r in result.fetchall() if r[0]]
+            return {"suggestions": values, "total": len(values)}
 
         else:
             # Return all suggestions if no field specified
             series_result = await db.execute(
-                select(distinct(Video.series)).where(Video.series.isnot(None))
+                select(Video.series, func.count(Video.id)).where(Video.series.isnot(None))
+                .group_by(Video.series).order_by(Video.series)
             )
-            series = sorted([s[0] for s in series_result.fetchall() if s[0]])
+            series = [{"value": r[0], "count": r[1]} for r in series_result.fetchall() if r[0]]
 
             channel_result = await db.execute(
-                select(distinct(Video.channel)).where(Video.channel.isnot(None))
+                select(Video.channel, func.count(Video.id)).where(Video.channel.isnot(None))
+                .group_by(Video.channel).order_by(Video.channel)
             )
-            channels = sorted([c[0] for c in channel_result.fetchall() if c[0]])
+            channels = [{"value": r[0], "count": r[1]} for r in channel_result.fetchall() if r[0]]
 
             year_result = await db.execute(
-                select(distinct(Video.year)).where(Video.year.isnot(None))
+                select(Video.year, func.count(Video.id)).where(Video.year.isnot(None))
+                .group_by(Video.year).order_by(Video.year.desc())
             )
-            years = sorted([y[0] for y in year_result.fetchall() if y[0]])
+            years = [{"value": str(r[0]), "count": r[1]} for r in year_result.fetchall() if r[0]]
 
             return {
                 "series": series,
                 "channels": channels,
-                "years": [str(y) for y in years]
+                "years": years
             }
     except Exception as e:
         logger.error(f"Error fetching metadata suggestions: {e}")

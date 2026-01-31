@@ -407,10 +407,10 @@ class ImageViewerModule {
                 nextImageToShow = searchList[nextIndex]
             }
 
-            const response = await fetch(`${this.app.apiBase}/videos/${this.currentMoveImage.id}/move`, {
+            const response = await fetch(`${this.app.apiBase}/api/videos/${this.currentMoveImage.id}/move`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ folder: folderName })
+                body: JSON.stringify({ target_category: folderName })
             })
 
             if (response.ok) {

@@ -15,6 +15,7 @@ from .editor import router as editor_router
 from .audio import router as audio_router
 from .folders import router as folders_router
 from .maintenance import router as maintenance_router
+from .folder_videos import router as folder_videos_router
 
 __all__ = [
     "health_router",
@@ -32,4 +33,5 @@ __all__ = [
     "audio_router",
     "folders_router",
     "maintenance_router",
+    "folder_videos_router",
 ]

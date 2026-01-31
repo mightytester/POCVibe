@@ -4155,14 +4155,26 @@ class ClipperApp {
                 fetch(`${this.apiBase}/api/metadata/suggestions?field=year`)
             ]);
 
+            // Check if all responses are successful
+            if (!channelRes.ok || !seriesRes.ok || !yearRes.ok) {
+                console.warn('Some metadata suggestions failed to load');
+                return;
+            }
+
             const channelData = await channelRes.json();
             const seriesData = await seriesRes.json();
             const yearData = await yearRes.json();
 
-            // Populate datalist elements
-            this.populateDatalist('channelSuggestions', channelData.suggestions);
-            this.populateDatalist('seriesSuggestions', seriesData.suggestions);
-            this.populateDatalist('yearSuggestions', yearData.suggestions);
+            // Populate datalist elements with validation
+            if (channelData.suggestions && Array.isArray(channelData.suggestions)) {
+                this.populateDatalist('channelSuggestions', channelData.suggestions);
+            }
+            if (seriesData.suggestions && Array.isArray(seriesData.suggestions)) {
+                this.populateDatalist('seriesSuggestions', seriesData.suggestions);
+            }
+            if (yearData.suggestions && Array.isArray(yearData.suggestions)) {
+                this.populateDatalist('yearSuggestions', yearData.suggestions);
+            }
 
             console.log(`📊 Loaded metadata suggestions: ${channelData.total} channels, ${seriesData.total} series, ${yearData.total} years`);
         } catch (error) {
@@ -4178,12 +4190,16 @@ class ClipperApp {
         datalist.innerHTML = '';
 
         // Add new options with value and label (showing count)
-        suggestions.forEach(suggestion => {
-            const option = document.createElement('option');
-            option.value = suggestion.value;
-            option.label = `${suggestion.value} (${suggestion.count} video${suggestion.count !== 1 ? 's' : ''})`;
-            datalist.appendChild(option);
-        });
+        if (Array.isArray(suggestions) && suggestions.length > 0) {
+            suggestions.forEach(suggestion => {
+                if (suggestion && suggestion.value !== undefined) {
+                    const option = document.createElement('option');
+                    option.value = suggestion.value;
+                    option.label = `${suggestion.value} (${suggestion.count} video${suggestion.count !== 1 ? 's' : ''})`;
+                    datalist.appendChild(option);
+                }
+            });
+        }
     }
 
     async loadThumbnailStats() {

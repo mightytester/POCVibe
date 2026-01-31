@@ -38,6 +38,7 @@ from routers import (
     audio_router,
     folders_router,
     maintenance_router,
+    folder_videos_router,
 )
 from routers.roots import set_thumbnail_db
 
@@ -148,6 +149,7 @@ app.include_router(health_router)
 app.include_router(roots_router)
 app.include_router(scan_router)
 app.include_router(videos_router)
+app.include_router(folder_videos_router)
 app.include_router(tags_router)
 app.include_router(actors_router)
 app.include_router(search_router)
