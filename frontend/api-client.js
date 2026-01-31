@@ -48,47 +48,47 @@ class ClipperAPIClient {
 
     async getVideos(params = {}) {
         const queryString = new URLSearchParams(params).toString();
-        return this.request(`/videos${queryString ? `?${queryString}` : ''}`);
+        return this.request(`/api/videos${queryString ? `?${queryString}` : ''}`);
     }
 
     async getVideosByFolder(folderName, bustCache = false) {
         const params = bustCache ? `?_t=${Date.now()}&cache=${Math.random()}` : '';
-        return this.request(`/videos/${encodeURIComponent(folderName)}${params}`, {
+        return this.request(`/api/videos/${encodeURIComponent(folderName)}${params}`, {
             cache: 'no-store'
         });
     }
 
     async getAllVideos(bustCache = false) {
         const params = bustCache ? `?_t=${Date.now()}` : '';
-        return this.request(`/videos/_all${params}`);
+        return this.request(`/api/videos/_all${params}`);
     }
 
     async getVideo(videoId) {
-        return this.request(`/videos/${videoId}`);
+        return this.request(`/api/videos/${videoId}`);
     }
 
     async updateVideo(videoId, data) {
-        return this.request(`/videos/${videoId}/update`, {
+        return this.request(`/api/videos/${videoId}/update`, {
             method: 'POST',
             body: JSON.stringify(data)
         });
     }
 
     async moveVideo(videoId, targetCategory) {
-        return this.request(`/videos/${videoId}/move`, {
+        return this.request(`/api/videos/${videoId}/move`, {
             method: 'POST',
             body: JSON.stringify({ target_category: targetCategory })
         });
     }
 
     async deleteVideo(videoId) {
-        return this.request(`/videos/${videoId}/delete`, {
+        return this.request(`/api/videos/${videoId}/delete`, {
             method: 'POST'
         });
     }
 
     async deletePermanent(videoId) {
-        return this.request(`/videos/${videoId}/delete-permanent`, {
+        return this.request(`/api/videos/${videoId}/delete-permanent`, {
             method: 'POST'
         });
     }

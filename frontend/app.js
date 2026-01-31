@@ -4494,14 +4494,33 @@ class ClipperApp {
     throttle(fn, delay = 100) { return this.sorting.throttle(fn, delay) }
     switchView(viewType, resetNavigation = true, animate = true) { this.sorting.switchView(viewType, resetNavigation, animate) }
     showListViewSearchUI() { this.sorting.showListViewSearchUI() }
-    async loadAllVideosSimple() { await this.sorting.loadAllVideosSimple() }
+    async loadAllVideosSimple() {
+        console.log('🐞 App.loadAllVideosSimple: Delegating to sorting module');
+        try {
+            await this.sorting.loadAllVideosSimple();
+            console.log('✅ App.loadAllVideosSimple: Completed');
+        } catch (err) {
+            console.error('❌ App.loadAllVideosSimple: Failed', err);
+            alert('Failed to load videos: ' + err.message);
+        }
+    }
     showLoadingOverlay() { this.sorting.showLoadingOverlay() }
     hideLoadingOverlay() { this.sorting.hideLoadingOverlay() }
     updateLoadingProgress(message) { this.sorting.updateLoadingProgress(message) }
     disableAllFilters() { this.sorting.disableAllFilters() }
     enableAllFilters() { this.sorting.enableAllFilters() }
 
-    async loadAllVideosFlat(forceReload = false) { return this.collectionModule.loadAllVideosFlat(forceReload) }
+    async loadAllVideosFlat(forceReload = false) {
+        console.log(`🐞 App.loadAllVideosFlat: Delegating to collection module (forceReload=${forceReload})`);
+        try {
+            const result = await this.collectionModule.loadAllVideosFlat(forceReload);
+            console.log(`✅ App.loadAllVideosFlat: Completed. Videos count: ${this.allVideos ? this.allVideos.length : 'unknown'}`);
+            return result;
+        } catch (err) {
+            console.error('❌ App.loadAllVideosFlat: Failed', err);
+            throw err;
+        }
+    }
 
     showAllVideosInCollection() { this.collectionModule.showAllVideosInCollection() }
 
