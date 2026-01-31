@@ -624,6 +624,181 @@ class VideoPlayerModule {
         }
         return mimeTypes[extension] || 'video/mp4'
     }
+
+    setupEventListeners() {
+        // Video modal close
+        const closeModalBtn = document.getElementById('closeModal');
+        if (closeModalBtn) {
+            closeModalBtn.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.hideVideoPlayer();
+            };
+            closeModalBtn.ontouchend = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.hideVideoPlayer();
+            };
+        }
+
+        // Video player menu button
+        const menuBtn = document.getElementById('videoPlayerMenuBtn');
+        if (menuBtn) {
+            menuBtn.onclick = (e) => {
+                e.stopPropagation();
+                this.app.showVideoPlayerMenu(e);
+            };
+        }
+
+        // Mobile face recognition buttons
+        const mobilePauseBtn = document.getElementById('mobilePauseBtn');
+        if (mobilePauseBtn) {
+            mobilePauseBtn.onclick = (e) => {
+                e.stopPropagation();
+                const videoPlayer = document.getElementById('videoPlayer');
+                if (videoPlayer) {
+                    if (videoPlayer.paused) {
+                        videoPlayer.play();
+                        mobilePauseBtn.innerHTML = `<svg width="24" height="24" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32">
+                            <circle cx="256" cy="256" r="208" stroke-width="32"/>
+                            <path d="M208 192v128M304 192v128" stroke-linecap="round"/>
+                        </svg>`;
+                    } else {
+                        videoPlayer.pause();
+                        mobilePauseBtn.innerHTML = `<svg width="24" height="24" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32">
+                            <circle cx="256" cy="256" r="208" stroke-width="32"/>
+                            <path d="M208 192l128 64-128 64z" stroke-linejoin="round"/>
+                        </svg>`;
+                    }
+                }
+            };
+        }
+
+        const mobileSearchFaceBtn = document.getElementById('mobileSearchFaceBtn');
+        if (mobileSearchFaceBtn) {
+            mobileSearchFaceBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (this.currentVideoInPlayer) {
+                    const videoPlayer = document.getElementById('videoPlayer');
+                    if (videoPlayer && !videoPlayer.paused) {
+                        videoPlayer.pause();
+                        if (mobilePauseBtn) mobilePauseBtn.innerHTML = `<svg width="24" height="24" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32">
+                            <circle cx="256" cy="256" r="208" stroke-width="32"/>
+                            <path d="M208 192l128 64-128 64z" stroke-linejoin="round"/>
+                        </svg>`;
+                    }
+                    this.app.quickFaceSearchFromCurrentFrame();
+                }
+            };
+        }
+
+        const mobileAutoExtractBtn = document.getElementById('mobileAutoExtractBtn');
+        if (mobileAutoExtractBtn) {
+            mobileAutoExtractBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (this.currentVideoInPlayer) {
+                    const videoPlayer = document.getElementById('videoPlayer');
+                    if (videoPlayer && !videoPlayer.paused) {
+                        videoPlayer.pause();
+                        if (mobilePauseBtn) mobilePauseBtn.innerHTML = `<svg width="24" height="24" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32">
+                            <circle cx="256" cy="256" r="208" stroke-width="32"/>
+                            <path d="M208 192l128 64-128 64z" stroke-linejoin="round"/>
+                        </svg>`;
+                    }
+                    this.app.autoScanFaces();
+                }
+            };
+        }
+
+        const mobileFindSimilarBtn = document.getElementById('mobileFindSimilarBtn');
+        if (mobileFindSimilarBtn) {
+            mobileFindSimilarBtn.onclick = async (e) => {
+                e.stopPropagation();
+                if (this.currentVideoInPlayer) {
+                    const videoPlayer = document.getElementById('videoPlayer');
+                    if (videoPlayer && !videoPlayer.paused) {
+                        videoPlayer.pause();
+                        if (mobilePauseBtn) mobilePauseBtn.innerHTML = `<svg width="24" height="24" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32">
+                            <circle cx="256" cy="256" r="208" stroke-width="32"/>
+                            <path d="M208 192l128 64-128 64z" stroke-linejoin="round"/>
+                        </svg>`;
+                    }
+                    await this.app.checkIfDuplicate(this.currentVideoInPlayer.id);
+                }
+            };
+        }
+
+        const mobileAddFingerprintBtn = document.getElementById('mobileAddFingerprintBtn');
+        if (mobileAddFingerprintBtn) {
+            mobileAddFingerprintBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (this.currentVideoInPlayer) {
+                    const videoPlayer = document.getElementById('videoPlayer');
+                    if (videoPlayer && !videoPlayer.paused) {
+                        videoPlayer.pause();
+                        if (mobilePauseBtn) mobilePauseBtn.innerHTML = `<svg width="24" height="24" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32">
+                            <circle cx="256" cy="256" r="208" stroke-width="32"/>
+                            <path d="M208 192l128 64-128 64z" stroke-linejoin="round"/>
+                        </svg>`;
+                    }
+                    this.app.addCurrentFrameToFingerprint();
+                }
+            };
+        }
+
+        // Mobile loop button
+        const mobileLoopBtn = document.getElementById('mobileLoopBtn');
+        if (mobileLoopBtn) {
+            mobileLoopBtn.onclick = (e) => {
+                e.stopPropagation();
+                const videoPlayer = document.getElementById('videoPlayer');
+                if (videoPlayer) {
+                    videoPlayer.loop = !videoPlayer.loop;
+                    mobileLoopBtn.setAttribute('data-loop', videoPlayer.loop ? 'on' : 'off');
+                }
+            };
+        }
+
+        // Three-finger tap to show/hide mobile controls with pause/play
+        const videoPlayer = document.getElementById('videoPlayer');
+        if (videoPlayer) {
+            let threeFingerTouchStart = false;
+
+            videoPlayer.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 3) threeFingerTouchStart = true;
+            });
+
+            videoPlayer.addEventListener('touchend', (e) => {
+                if (threeFingerTouchStart && e.changedTouches.length >= 1) {
+                    threeFingerTouchStart = false;
+                    const mobileControls = document.getElementById('mobileFaceControls');
+                    const isVisible = mobileControls.classList.contains('visible');
+
+                    if (isVisible) {
+                        mobileControls.classList.remove('visible');
+                        if (videoPlayer.paused) {
+                            videoPlayer.play();
+                            if (mobilePauseBtn) mobilePauseBtn.innerHTML = `<svg width="24" height="24" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32">
+                                <circle cx="256" cy="256" r="208" stroke-width="32"/>
+                                <path d="M208 192v128M304 192v128" stroke-linecap="round"/>
+                            </svg>`;
+                        }
+                    } else {
+                        mobileControls.classList.add('visible');
+                        if (!videoPlayer.paused) {
+                            videoPlayer.pause();
+                            if (mobilePauseBtn) mobilePauseBtn.innerHTML = `<svg width="24" height="24" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32">
+                                <circle cx="256" cy="256" r="208" stroke-width="32"/>
+                                <path d="M208 192l128 64-128 64z" stroke-linejoin="round"/>
+                            </svg>`;
+                        }
+                    }
+                } else if (e.touches.length === 0) {
+                    threeFingerTouchStart = false;
+                }
+            });
+        }
+    }
 }
 
 // Export as global

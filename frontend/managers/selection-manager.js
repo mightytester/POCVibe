@@ -106,6 +106,43 @@ class SelectionManager {
         // Update menu toggle switch if it exists
         this.app.updateSelectionModeRadio();
     }
+    setupEventListeners() {
+        // Bulk operations event listeners
+        const selectAllBtn = document.getElementById('selectAllBtn');
+        if (selectAllBtn) {
+            selectAllBtn.onclick = () => this.selectAllVideos();
+        }
+
+        const deselectAllBtn = document.getElementById('deselectAllBtn');
+        if (deselectAllBtn) {
+            deselectAllBtn.onclick = () => this.deselectAllVideos();
+        }
+
+        const bulkTagBtn = document.getElementById('bulkTagBtn');
+        if (bulkTagBtn) {
+            bulkTagBtn.onclick = () => this.app.showBulkTagModal();
+        }
+
+        const bulkMoveBtn = document.getElementById('bulkMoveBtn');
+        if (bulkMoveBtn) {
+            bulkMoveBtn.onclick = () => this.app.showBulkMoveModal();
+        }
+
+        const bulkEditBtn = document.getElementById('bulkEditMetadataBtn');
+        if (bulkEditBtn) {
+            bulkEditBtn.onclick = () => this.app.showBulkEditModal();
+        }
+
+        const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+        if (bulkDeleteBtn) {
+            bulkDeleteBtn.onclick = () => this.app.showBulkDeleteModal();
+        }
+
+        const cancelSelectionBtn = document.getElementById('cancelSelectionBtn');
+        if (cancelSelectionBtn) {
+            cancelSelectionBtn.onclick = () => this.cancelSelection();
+        }
+    }
 }
 
 window.SelectionManager = SelectionManager;

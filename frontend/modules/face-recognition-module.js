@@ -36,7 +36,7 @@ class FaceRecognitionModule {
         if (this.faceApiLoading) return false; // Already loading
 
         this.faceApiLoading = true;
-        const onStatus = options.onStatus || (() => {});
+        const onStatus = options.onStatus || (() => { });
 
         try {
             onStatus('Loading face detection models...', false);
@@ -516,6 +516,32 @@ class FaceRecognitionModule {
         } catch (error) {
             console.error('Failed to merge faces:', error);
             alert('Failed to merge faces: ' + error.message);
+        }
+    }
+
+    setupEventListeners() {
+        // Face Search Modal
+        const closeFaceSearchBtn = document.getElementById('closeFaceSearchModal');
+        if (closeFaceSearchBtn) {
+            closeFaceSearchBtn.onclick = () => this.app.hideFaceSearchModal();
+        }
+
+        // Auto Scan Modal
+        const closeAutoScanBtn = document.getElementById('closeAutoScanModal');
+        if (closeAutoScanBtn) {
+            closeAutoScanBtn.onclick = () => this.app.hideAutoScanModal();
+        }
+
+        // Face Extraction Modal
+        const closeFaceExtBtn = document.getElementById('closeFaceExtractionModal');
+        if (closeFaceExtBtn) {
+            closeFaceExtBtn.onclick = () => this.app.hideFaceExtractionModal();
+        }
+
+        // Face Merge Modal
+        const closeFaceMergeBtn = document.getElementById('closeFaceMergeModal');
+        if (closeFaceMergeBtn) {
+            closeFaceMergeBtn.onclick = () => this.app.hideFaceMergeModal();
         }
     }
 }

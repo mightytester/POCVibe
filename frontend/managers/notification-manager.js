@@ -38,6 +38,14 @@ class NotificationManager {
             });
         }
     }
+
+    setupEventListeners() {
+        // Notification close button (if exists)
+        const closeNotifBtn = document.getElementById('closeNotification');
+        if (closeNotifBtn) {
+            closeNotifBtn.onclick = () => this.dismissAllNotifications();
+        }
+    }
 }
 
 window.NotificationManager = NotificationManager;

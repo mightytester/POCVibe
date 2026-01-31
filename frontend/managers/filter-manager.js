@@ -244,6 +244,50 @@ class FilterManager {
         div.textContent = text;
         return div.innerHTML;
     }
+
+    setupEventListeners() {
+        // Tag filter dropdown
+        const tagFilter = document.getElementById('tagFilter');
+        if (tagFilter) {
+            tagFilter.onchange = () => this.app.handleFiltersChanged();
+        }
+
+        // Series filter dropdown
+        const seriesFilter = document.getElementById('seriesFilter');
+        if (seriesFilter) {
+            seriesFilter.onchange = () => this.app.handleFiltersChanged();
+        }
+
+        // Year filter dropdown
+        const yearFilter = document.getElementById('yearFilter');
+        if (yearFilter) {
+            yearFilter.onchange = () => this.app.handleFiltersChanged();
+        }
+
+        // Channel filter dropdown
+        const channelFilter = document.getElementById('channelFilter');
+        if (channelFilter) {
+            channelFilter.onchange = () => this.app.handleFiltersChanged();
+        }
+
+        // Search input with debounce or direct oninput
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.oninput = () => this.app.handleSearchInput();
+        }
+
+        // Favorite filter checkbox
+        const favoriteFilter = document.getElementById('favoriteFilter');
+        if (favoriteFilter) {
+            favoriteFilter.onchange = () => this.app.handleFiltersChanged();
+        }
+
+        // Clear filters button
+        const clearFiltersBtn = document.getElementById('clearBtn');
+        if (clearFiltersBtn) {
+            clearFiltersBtn.onclick = () => this.clearFilters();
+        }
+    }
 }
 
 window.FilterManager = FilterManager;

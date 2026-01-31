@@ -38,7 +38,7 @@ class SeriesMetadataModule {
 
         // Find the video to get current series info
         const video = this.app.videos.find(v => v.id === videoId) ||
-                     this.app.allVideos.find(v => v.id === videoId);
+            this.app.allVideos.find(v => v.id === videoId);
 
         // Store current video
         this.currentVideo = { id: videoId, name: videoName };
@@ -520,6 +520,26 @@ class SeriesMetadataModule {
         }
 
         starsElement.textContent = starsHtml;
+    }
+
+    setupEventListeners() {
+        // Series modal close and actions
+        const closeSeriesBtn = document.getElementById('closeSeriesModal');
+        if (closeSeriesBtn) {
+            closeSeriesBtn.onclick = () => this.hideSeriesModal();
+        }
+        const saveSeriesBtn = document.getElementById('saveSeriesBtn');
+        if (saveSeriesBtn) {
+            saveSeriesBtn.onclick = () => this.saveSeriesInfo();
+        }
+        const clearSeriesBtn = document.getElementById('clearSeriesBtn');
+        if (clearSeriesBtn) {
+            clearSeriesBtn.onclick = () => this.clearSeriesInfo();
+        }
+        const cancelSeriesBtn = document.getElementById('cancelSeriesBtn');
+        if (cancelSeriesBtn) {
+            cancelSeriesBtn.onclick = () => this.hideSeriesModal();
+        }
     }
 }
 

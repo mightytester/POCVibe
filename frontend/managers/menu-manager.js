@@ -142,6 +142,168 @@ class MenuManager {
             console.error('Error fetching fingerprint stats:', error);
         }
     }
+
+    setupEventListeners() {
+        // Actions menu button
+        const menuBtn = document.getElementById('actionsMenuBtn');
+        if (menuBtn) {
+            menuBtn.onclick = (e) => {
+                e.stopPropagation();
+                this.toggleActionsMenu();
+            };
+        }
+
+        // Sort menu interaction
+        const sortBtn = document.getElementById('menuSortBtn');
+        if (sortBtn) {
+            sortBtn.onclick = (e) => {
+                e.stopPropagation();
+                this.toggleSortSubmenu();
+            };
+        }
+
+        // Sort submenu items
+        document.querySelectorAll('.actions-submenu-item').forEach(item => {
+            item.onclick = (e) => {
+                e.stopPropagation();
+                const sortValue = item.getAttribute('data-sort');
+                this.applySortOption(sortValue);
+                this.hideSortSubmenu();
+                this.hideActionsMenu();
+            };
+        });
+
+        // View menu items in Actions Menu
+        const collectionBtn = document.getElementById('menuCollectionViewBtn');
+        if (collectionBtn) {
+            collectionBtn.onclick = () => {
+                this.app.switchView('list');
+                this.hideActionsMenu();
+            };
+        }
+
+        const seriesBtn = document.getElementById('menuSeriesViewBtn');
+        if (seriesBtn) {
+            seriesBtn.onclick = () => {
+                this.app.switchView('series');
+                this.hideActionsMenu();
+            };
+        }
+
+        // Toggles and Actions
+        const selectionBtn = document.getElementById('menuSelectionModeBtn');
+        if (selectionBtn) {
+            selectionBtn.onclick = () => {
+                this.hideActionsMenu();
+                this.app.toggleSelectionMode();
+            };
+        }
+
+        const verticalBtn = document.getElementById('menuVerticalModeBtn');
+        if (verticalBtn) {
+            verticalBtn.onclick = () => {
+                this.hideActionsMenu();
+                this.app.toggleVerticalMode();
+            };
+        }
+
+        const manageTagsBtn = document.getElementById('menuManageTagsBtn');
+        if (manageTagsBtn) {
+            manageTagsBtn.onclick = () => {
+                this.hideActionsMenu();
+                this.app.showTagManagerView();
+            };
+        }
+
+        const faceCatalogBtn = document.getElementById('menuFaceCatalogBtn');
+        if (faceCatalogBtn) {
+            faceCatalogBtn.onclick = () => {
+                this.hideActionsMenu();
+                this.app.showFaceCatalogView();
+            };
+        }
+
+        const mergeFacesBtn = document.getElementById('menuMergeFacesBtn');
+        if (mergeFacesBtn) {
+            mergeFacesBtn.onclick = () => {
+                this.hideActionsMenu();
+                this.app.showMergeFacesModal();
+            };
+        }
+
+        const reviewDuplicatesBtn = document.getElementById('menuReviewDuplicatesBtn');
+        if (reviewDuplicatesBtn) {
+            reviewDuplicatesBtn.onclick = () => {
+                this.hideActionsMenu();
+                this.app.showDuplicatesReviewView();
+            };
+        }
+
+        const cleanupDBBtn = document.getElementById('menuCleanupDatabaseBtn');
+        if (cleanupDBBtn) {
+            cleanupDBBtn.onclick = () => {
+                this.hideActionsMenu();
+                this.app.cleanupDatabase();
+            };
+        }
+
+        const downloadM3U8Btn = document.getElementById('menuDownloadM3U8Btn');
+        if (downloadM3U8Btn) {
+            downloadM3U8Btn.onclick = () => {
+                this.hideActionsMenu();
+                this.app.showDownloadM3U8Modal();
+            };
+        }
+
+        const downloadSOCKSBtn = document.getElementById('menuDownloadSOCKSBtn');
+        if (downloadSOCKSBtn) {
+            downloadSOCKSBtn.onclick = () => {
+                this.hideActionsMenu();
+                this.app.showDownloadSOCKSModal();
+            };
+        }
+
+        const quickDownloadBtn = document.getElementById('menuQuickDownloadBtn');
+        if (quickDownloadBtn) {
+            quickDownloadBtn.onclick = () => {
+                this.hideActionsMenu();
+                this.app.showQuickDownloadModal();
+            };
+        }
+
+        const batchDownloadBtn = document.getElementById('menuBatchDownloadBtn');
+        if (batchDownloadBtn) {
+            batchDownloadBtn.onclick = () => {
+                this.hideActionsMenu();
+                this.app.showBatchDownloadModal();
+            };
+        }
+
+        const clipboardBtn = document.getElementById('menuClipboardDownloadBtn');
+        if (clipboardBtn) {
+            clipboardBtn.onclick = () => {
+                this.hideActionsMenu();
+                this.app.downloadFromClipboard();
+            };
+        }
+
+        const helpBtn = document.getElementById('menuHelpBtn');
+        if (helpBtn) {
+            helpBtn.onclick = () => {
+                this.hideActionsMenu();
+                this.app.showHelpModal();
+            };
+        }
+
+        // Click outside to close actions menu
+        document.addEventListener('click', (e) => {
+            const menu = document.getElementById('actionsMenu');
+            const menuBtn = document.getElementById('actionsMenuBtn');
+            if (menu && menu.style.display === 'block' && !menu.contains(e.target) && e.target !== menuBtn) {
+                this.hideActionsMenu();
+            }
+        });
+    }
 }
 
 window.MenuManager = MenuManager;

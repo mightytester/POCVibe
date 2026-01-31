@@ -2180,220 +2180,22 @@ class ClipperApp {
     showNavigationIndicator(direction) { this.videoPlayer.showNavigationIndicator(direction) }
 
     setupEventListeners() {
-        // Video modal close
-        const closeModalBtn = document.getElementById('closeModal');
-        if (closeModalBtn) {
-            closeModalBtn.onclick = (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                this.hideVideoPlayer();
-            };
-            closeModalBtn.ontouchend = (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                this.hideVideoPlayer();
-            };
-        }
+        // Delegate to specific managers and modules
+        this.menuManager.setupEventListeners();
+        this.folderManager.setupEventListeners();
+        this.selectionManager.setupEventListeners();
+        this.videoPlayer.setupEventListeners();
+        this.imageViewer.setupEventListeners();
+        this.fingerprint.setupEventListeners();
+        this.faceRecognition.setupEventListeners();
+        this.seriesModule.setupEventListeners();
+        this.tagModule.setupEventListeners();
+        this.actorModule.setupEventListeners();
+        this.notificationManager.setupEventListeners();
+        this.filterManager.setupEventListeners();
 
-        // Image modal close - ✅ NEW
-        const closeImageModalBtn = document.getElementById('closeImageModal');
-        if (closeImageModalBtn) {
-            closeImageModalBtn.onclick = (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                this.hideImageViewer();
-            };
-            closeImageModalBtn.ontouchend = (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                this.hideImageViewer();
-            };
-        }
 
-        // Image player menu button - ✅ UPDATED
-        document.getElementById('imagePlayerMenuBtn').onclick = (e) => {
-            e.stopPropagation();
-            this.showImagePlayerMenu(e);
-        };
 
-        // Image navigation buttons - ✅ NEW
-        document.getElementById('imageNextBtn').onclick = () => this.showNextImage();
-        document.getElementById('imagePrevBtn').onclick = () => this.showPreviousImage();
-
-        // Video player menu button
-        document.getElementById('videoPlayerMenuBtn').onclick = (e) => {
-            e.stopPropagation();
-            this.showVideoPlayerMenu(e);
-        };
-
-        // Mobile face recognition buttons
-        document.getElementById('mobilePauseBtn').onclick = (e) => {
-            e.stopPropagation();
-            const videoPlayer = document.getElementById('videoPlayer');
-            const pauseBtn = document.getElementById('mobilePauseBtn');
-            if (videoPlayer) {
-                if (videoPlayer.paused) {
-                    videoPlayer.play();
-                    // Change to pause icon
-                    pauseBtn.innerHTML = `<svg width="24" height="24" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32">
-                        <circle cx="256" cy="256" r="208" stroke-width="32"/>
-                        <path d="M208 192v128M304 192v128" stroke-linecap="round"/>
-                    </svg>`;
-                } else {
-                    videoPlayer.pause();
-                    // Change to play icon
-                    pauseBtn.innerHTML = `<svg width="24" height="24" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32">
-                        <circle cx="256" cy="256" r="208" stroke-width="32"/>
-                        <path d="M208 192l128 64-128 64z" stroke-linejoin="round"/>
-                    </svg>`;
-                }
-            }
-        };
-
-        document.getElementById('mobileSearchFaceBtn').onclick = (e) => {
-            e.stopPropagation();
-            if (this.currentVideoInPlayer) {
-                // Pause video first for face search
-                const videoPlayer = document.getElementById('videoPlayer');
-                if (videoPlayer && !videoPlayer.paused) {
-                    videoPlayer.pause();
-                    const pauseBtn = document.getElementById('mobilePauseBtn');
-                    pauseBtn.innerHTML = `<svg width="24" height="24" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32">
-                        <circle cx="256" cy="256" r="208" stroke-width="32"/>
-                        <path d="M208 192l128 64-128 64z" stroke-linejoin="round"/>
-                    </svg>`;
-                }
-                this.quickFaceSearchFromCurrentFrame();
-            }
-        };
-
-        document.getElementById('mobileAutoExtractBtn').onclick = (e) => {
-            e.stopPropagation();
-            if (this.currentVideoInPlayer) {
-                // Pause video first for auto face extraction
-                const videoPlayer = document.getElementById('videoPlayer');
-                if (videoPlayer && !videoPlayer.paused) {
-                    videoPlayer.pause();
-                    const pauseBtn = document.getElementById('mobilePauseBtn');
-                    pauseBtn.innerHTML = `<svg width="24" height="24" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32">
-                        <circle cx="256" cy="256" r="208" stroke-width="32"/>
-                        <path d="M208 192l128 64-128 64z" stroke-linejoin="round"/>
-                    </svg>`;
-                }
-                this.autoScanFaces();
-            }
-        };
-
-        document.getElementById('mobileFindSimilarBtn').onclick = async (e) => {
-            e.stopPropagation();
-            if (this.currentVideoInPlayer) {
-                // Pause video first
-                const videoPlayer = document.getElementById('videoPlayer');
-                if (videoPlayer && !videoPlayer.paused) {
-                    videoPlayer.pause();
-                    const pauseBtn = document.getElementById('mobilePauseBtn');
-                    pauseBtn.innerHTML = `<svg width="24" height="24" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32">
-                        <circle cx="256" cy="256" r="208" stroke-width="32"/>
-                        <path d="M208 192l128 64-128 64z" stroke-linejoin="round"/>
-                    </svg>`;
-                }
-                await this.checkIfDuplicate(this.currentVideoInPlayer.id);
-            }
-        };
-
-        document.getElementById('mobileAddFingerprintBtn').onclick = (e) => {
-            e.stopPropagation();
-            if (this.currentVideoInPlayer) {
-                // Pause video first for fingerprint
-                const videoPlayer = document.getElementById('videoPlayer');
-                if (videoPlayer && !videoPlayer.paused) {
-                    videoPlayer.pause();
-                    const pauseBtn = document.getElementById('mobilePauseBtn');
-                    pauseBtn.innerHTML = `<svg width="24" height="24" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32">
-                        <circle cx="256" cy="256" r="208" stroke-width="32"/>
-                        <path d="M208 192l128 64-128 64z" stroke-linejoin="round"/>
-                    </svg>`;
-                }
-                this.addCurrentFrameToFingerprint();
-            }
-        };
-
-        // Mobile loop button
-        document.getElementById('mobileLoopBtn').onclick = (e) => {
-            e.stopPropagation();
-            const videoPlayer = document.getElementById('videoPlayer');
-            const loopBtn = document.getElementById('mobileLoopBtn');
-            if (videoPlayer) {
-                videoPlayer.loop = !videoPlayer.loop;
-                loopBtn.setAttribute('data-loop', videoPlayer.loop ? 'on' : 'off');
-            }
-        };
-
-        // Three-finger tap to show/hide mobile controls with pause/play
-        const videoPlayer = document.getElementById('videoPlayer');
-        let threeFingerTouchStart = false;
-
-        videoPlayer.addEventListener('touchstart', (e) => {
-            // Track if three fingers touched the screen
-            if (e.touches.length === 3) {
-                threeFingerTouchStart = true;
-            }
-        });
-
-        videoPlayer.addEventListener('touchend', (e) => {
-            // Check if this was a three-finger tap
-            if (threeFingerTouchStart && e.changedTouches.length >= 1) {
-                threeFingerTouchStart = false;
-                const mobileControls = document.getElementById('mobileFaceControls');
-                const isVisible = mobileControls.classList.contains('visible');
-
-                if (isVisible) {
-                    // Hide controls and resume playing
-                    mobileControls.classList.remove('visible');
-                    if (videoPlayer.paused) {
-                        videoPlayer.play();
-                        const pauseBtn = document.getElementById('mobilePauseBtn');
-                        if (pauseBtn) {
-                            pauseBtn.innerHTML = `<svg width="24" height="24" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32">
-                                <circle cx="256" cy="256" r="208" stroke-width="32"/>
-                                <path d="M208 192v128M304 192v128" stroke-linecap="round"/>
-                            </svg>`;
-                        }
-                    }
-                } else {
-                    // Show controls and pause video
-                    mobileControls.classList.add('visible');
-                    if (!videoPlayer.paused) {
-                        videoPlayer.pause();
-                        const pauseBtn = document.getElementById('mobilePauseBtn');
-                        if (pauseBtn) {
-                            pauseBtn.innerHTML = `<svg width="24" height="24" viewBox="0 0 512 512" fill="none" stroke="currentColor" stroke-width="32">
-                                <circle cx="256" cy="256" r="208" stroke-width="32"/>
-                                <path d="M208 192l128 64-128 64z" stroke-linejoin="round"/>
-                            </svg>`;
-                        }
-                    }
-                }
-            } else if (e.touches.length === 0) {
-                // Reset flag when all touches are released
-                threeFingerTouchStart = false;
-            }
-        });
-
-        // Tag modal close
-        document.getElementById('closeTagModal').onclick = () => this.hideTagModal();
-
-        // Actor modal close
-        document.getElementById('closeActorModal').onclick = () => this.hideActorModal();
-
-        // Scene description modal close
-        document.getElementById('closeSceneDescriptionModal').onclick = () => this.hideSceneDescriptionModal();
-
-        // Series modal close and actions
-        document.getElementById('closeSeriesModal').onclick = () => this.hideSeriesModal();
-        document.getElementById('saveSeriesBtn').onclick = () => this.saveSeriesInfo();
-        document.getElementById('clearSeriesBtn').onclick = () => this.clearSeriesInfo();
-        document.getElementById('cancelSeriesBtn').onclick = () => this.hideSeriesModal();
 
         // Move modal
         const moveModal = document.getElementById('moveModal');
@@ -2414,24 +2216,6 @@ class ClipperApp {
             document.getElementById('closeTagVideoPlayerModal').onclick = () => this.hideTagVideoPlayerModal();
         }
 
-        // Fingerprint Viewer modal
-        const fingerprintViewerModal = document.getElementById('fingerprintViewerModal');
-        if (fingerprintViewerModal) {
-            document.getElementById('closeFingerprintViewerModal').onclick = () => this.hideFingerprintViewer();
-            document.getElementById('closeFingerprintViewerBtn').onclick = () => this.hideFingerprintViewer();
-            document.getElementById('addMoreFingerprintsBtn').onclick = () => this.openFingerprintGenerationFromViewer();
-        }
-
-        // Fingerprint Generation modal
-        const fingerprintGenerationModal = document.getElementById('fingerprintGenerationModal');
-        if (fingerprintGenerationModal) {
-            document.getElementById('closeFingerprintGenerationModal').onclick = () => this.closeFingerprintGenerationModal();
-            document.getElementById('fpGenCancelBtn').onclick = () => this.closeFingerprintGenerationModal();
-            document.getElementById('fpGenGenerateBtn').onclick = () => this.generateRandomFingerprintFrames();
-            document.getElementById('fpGenSelectAllBtn').onclick = () => this.selectAllFingerprintFrames();
-            document.getElementById('fpGenDeselectAllBtn').onclick = () => this.deselectAllFingerprintFrames();
-            document.getElementById('fpGenAddSelectedBtn').onclick = () => this.addSelectedFingerprintFrames();
-        }
 
         // Help modal
         const helpModal = document.getElementById('helpModal');
@@ -2466,11 +2250,6 @@ class ClipperApp {
             });
         }
 
-        // Add tag button
-        document.getElementById('addTagBtn').onclick = () => this.addTag();
-        document.getElementById('tagInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.addTag();
-        });
 
         // Escape key to close modals - only close the modal that's actually open
         document.addEventListener('keydown', (e) => {
@@ -2605,104 +2384,9 @@ class ClipperApp {
 
         // Removed dangerous refresh button - use per-folder scan instead
 
-        // Clear filters button
-        document.getElementById('clearBtn').onclick = () => this.clearFilters();
 
         // Fast rescan button removed - now in actions menu
 
-        // Actions menu button
-        document.getElementById('actionsMenuBtn').onclick = (e) => {
-            e.stopPropagation();
-            this.toggleActionsMenu();
-        };
-
-        // Actions menu items
-
-
-        document.getElementById('menuSortBtn').onclick = (e) => {
-            e.stopPropagation();
-            this.toggleSortSubmenu();
-        };
-
-        // Sort submenu items
-        document.querySelectorAll('.actions-submenu-item').forEach(item => {
-            item.onclick = (e) => {
-                e.stopPropagation();
-                const sortValue = item.getAttribute('data-sort');
-                this.applySortOption(sortValue);
-                this.hideSortSubmenu();
-                this.hideActionsMenu();
-            };
-        });
-        document.getElementById('menuSelectionModeBtn').onclick = () => {
-            this.hideActionsMenu();
-            this.toggleSelectionMode();
-        };
-        document.getElementById('menuVerticalModeBtn').onclick = () => {
-            this.hideActionsMenu();
-            this.toggleVerticalMode();
-        };
-        document.getElementById('menuManageTagsBtn').onclick = () => {
-            this.hideActionsMenu();
-            this.showTagManagerView();
-        };
-
-
-
-        document.getElementById('menuFaceCatalogBtn').onclick = () => {
-            this.hideActionsMenu();
-            this.showFaceCatalogView();
-        };
-
-        document.getElementById('menuMergeFacesBtn').onclick = () => {
-            this.hideActionsMenu();
-            this.showMergeFacesModal();
-        };
-
-        document.getElementById('menuReviewDuplicatesBtn').onclick = () => {
-            this.hideActionsMenu();
-            this.showDuplicatesReviewView();
-        };
-
-        document.getElementById('menuCleanupDatabaseBtn').onclick = () => {
-            this.hideActionsMenu();
-            this.cleanupDatabase();
-        };
-
-        // Duplicates Review View exit button
-        document.getElementById('exitDuplicatesReviewView').onclick = () => {
-            this.exitDuplicatesReviewView();
-        };
-
-        document.getElementById('menuDownloadM3U8Btn').onclick = () => {
-            this.hideActionsMenu();
-            this.showDownloadM3U8Modal();
-        };
-
-        document.getElementById('menuDownloadSOCKSBtn').onclick = () => {
-            this.hideActionsMenu();
-            this.showDownloadSOCKSModal();
-        };
-
-        document.getElementById('menuQuickDownloadBtn').onclick = () => {
-            this.hideActionsMenu();
-            this.showQuickDownloadModal();
-        };
-
-        document.getElementById('menuBatchDownloadBtn').onclick = () => {
-            this.hideActionsMenu();
-            this.showBatchDownloadModal();
-        };
-
-        document.getElementById('menuClipboardDownloadBtn').onclick = () => {
-            this.hideActionsMenu();
-            this.downloadFromClipboard();
-        };
-
-        document.getElementById('menuHelpBtn').onclick = () => {
-            this.hideActionsMenu();
-            this.showHelpModal();
-        };
 
         // M3U8 Download Modal
         document.getElementById('closeDownloadM3U8Modal').onclick = () => {
@@ -2802,27 +2486,10 @@ class ClipperApp {
             this.useCurrentTimeFor('end');
         };
 
-        // Click outside to close actions menu
-        document.addEventListener('click', (e) => {
-            const menu = document.getElementById('actionsMenu');
-            const menuBtn = document.getElementById('actionsMenuBtn');
-            if (menu.style.display === 'block' && !menu.contains(e.target) && e.target !== menuBtn) {
-                this.hideActionsMenu();
-            }
-        });
 
         // View toggle button (only Explorer as main button)
         document.getElementById('explorerViewBtn').onclick = () => this.switchView('explorer');
 
-        // View menu items in Actions Menu
-        document.getElementById('menuCollectionViewBtn').onclick = () => {
-            this.switchView('list');
-            this.hideActionsMenu();
-        };
-        document.getElementById('menuSeriesViewBtn').onclick = () => {
-            this.switchView('series');
-            this.hideActionsMenu();
-        };
 
         // Ensure view buttons reflect current state (in case settings were loaded before DOM was ready)
         this.updateViewButtons();
@@ -2983,31 +2650,7 @@ class ClipperApp {
             this.saveSettingsToStorage();
         });
 
-        // Folder filter event listeners
-        document.getElementById('folderFilterBtn').onclick = () => this.toggleFolderFilterMenu();
-        document.getElementById('selectAllFolders').addEventListener('change', () => this.handleSelectAllFolders());
 
-        // Sort dropdown removed - now in actions menu
-        // Tag management button removed - now in actions menu
-
-        // Close folder filter menu when clicking outside
-        document.addEventListener('click', (e) => {
-            const dropdown = document.getElementById('folderFilterDropdown');
-            const menu = document.getElementById('folderFilterMenu');
-            if (dropdown && !dropdown.contains(e.target) && menu.style.display !== 'none') {
-                menu.style.display = 'none';
-            }
-        });
-
-        // Bulk operations event listeners
-        // Selection mode button removed - now in actions menu
-        document.getElementById('selectAllBtn').onclick = () => this.selectAllVideos();
-        document.getElementById('deselectAllBtn').onclick = () => this.deselectAllVideos();
-        document.getElementById('bulkTagBtn').onclick = () => this.showBulkTagModal();
-        document.getElementById('bulkMoveBtn').onclick = () => this.showBulkMoveModal();
-        document.getElementById('bulkEditMetadataBtn').onclick = () => this.showBulkEditModal();
-        document.getElementById('bulkDeleteBtn').onclick = () => this.showBulkDeleteModal();
-        document.getElementById('cancelSelectionBtn').onclick = () => this.cancelSelection();
 
         // Bulk edit modal event listeners
         document.getElementById('closeBulkEditModal').onclick = () => this.hideBulkEditModal();

@@ -21,7 +21,7 @@ class ActorManagementModule {
 
         // Load current actors for this video
         const video = this.app.allVideos.find(v => v.id === videoId) ||
-                      this.app.videos.find(v => v.id === videoId)
+            this.app.videos.find(v => v.id === videoId)
         this.currentVideoActors = video ? video.actors || [] : []
 
         // Clear previous input
@@ -462,6 +462,20 @@ class ActorManagementModule {
         return str.replace(/\w\S*/g, (txt) => {
             return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
         })
+    }
+
+    setupEventListeners() {
+        // Actor modal close
+        const closeActorBtn = document.getElementById('closeActorModal');
+        if (closeActorBtn) {
+            closeActorBtn.onclick = () => this.hideActorModal();
+        }
+
+        // Add actor button (this is also handled in setupActorAutocomplete but good for consistency)
+        const addActorBtn = document.getElementById('addActorBtn');
+        if (addActorBtn) {
+            addActorBtn.onclick = () => this.addActor();
+        }
     }
 }
 

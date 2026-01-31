@@ -21,7 +21,7 @@ class TagManagementModule {
 
         // Load current tags for this video
         const video = this.app.allVideos.find(v => v.id === videoId) ||
-                      this.app.videos.find(v => v.id === videoId)
+            this.app.videos.find(v => v.id === videoId)
         this.currentVideoTags = video ? video.tags || [] : []
 
         // Clear previous input
@@ -378,7 +378,7 @@ class TagManagementModule {
 
         // Load current tags
         const video = this.app.allVideos.find(v => v.id === videoId) ||
-                      this.app.videos.find(v => v.id === videoId)
+            this.app.videos.find(v => v.id === videoId)
         this.currentVideoTags = video ? video.tags || [] : []
 
         // Setup and render
@@ -608,6 +608,28 @@ class TagManagementModule {
             }
         } catch (error) {
             console.log(`Error adding "${tagName}" tag:`, error)
+        }
+    }
+
+    setupEventListeners() {
+        // Tag modal close
+        const closeTagBtn = document.getElementById('closeTagModal');
+        if (closeTagBtn) {
+            closeTagBtn.onclick = () => this.hideTagModal();
+        }
+
+        // Add tag button
+        const addTagBtn = document.getElementById('addTagBtn');
+        if (addTagBtn) {
+            addTagBtn.onclick = () => this.addTag();
+        }
+
+        // Tag input enter key
+        const tagInput = document.getElementById('tagInput');
+        if (tagInput) {
+            tagInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.addTag();
+            });
         }
     }
 }

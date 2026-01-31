@@ -54,6 +54,28 @@ class FolderManager {
             return null;
         }
     }
+
+    setupEventListeners() {
+        // Folder filter event listeners
+        const filterBtn = document.getElementById('folderFilterBtn');
+        if (filterBtn) {
+            filterBtn.onclick = () => this.app.toggleFolderFilterMenu();
+        }
+
+        const selectAllFolders = document.getElementById('selectAllFolders');
+        if (selectAllFolders) {
+            selectAllFolders.addEventListener('change', () => this.app.handleSelectAllFolders());
+        }
+
+        // Close folder filter menu when clicking outside
+        document.addEventListener('click', (e) => {
+            const dropdown = document.getElementById('folderFilterDropdown');
+            const menu = document.getElementById('folderFilterMenu');
+            if (dropdown && !dropdown.contains(e.target) && menu && menu.style.display !== 'none') {
+                menu.style.display = 'none';
+            }
+        });
+    }
 }
 
 window.FolderManager = FolderManager;

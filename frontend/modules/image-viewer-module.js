@@ -606,6 +606,49 @@ class ImageViewerModule {
     cleanupImageZoomPan() {
         // Cleanup zoom/pan handlers
     }
+
+    setupEventListeners() {
+        // Image modal close
+        const closeImageModalBtn = document.getElementById('closeImageModal');
+        if (closeImageModalBtn) {
+            closeImageModalBtn.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.hideImageViewer();
+            };
+            closeImageModalBtn.ontouchend = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.hideImageViewer();
+            };
+        }
+
+        // Image player menu button
+        const imageMenuBtn = document.getElementById('imagePlayerMenuBtn');
+        if (imageMenuBtn) {
+            imageMenuBtn.onclick = (e) => {
+                e.stopPropagation();
+                this.app.showVideoPlayerMenu(e); // Images use same menu
+            };
+        }
+
+        // Image navigation buttons
+        const nextBtn = document.getElementById('imageNextBtn');
+        if (nextBtn) {
+            nextBtn.onclick = (e) => {
+                e.stopPropagation();
+                this.showNextImage();
+            };
+        }
+
+        const prevBtn = document.getElementById('imagePrevBtn');
+        if (prevBtn) {
+            prevBtn.onclick = (e) => {
+                e.stopPropagation();
+                this.showPreviousImage();
+            };
+        }
+    }
 }
 
 // Export as global

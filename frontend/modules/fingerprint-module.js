@@ -1032,6 +1032,48 @@ class FingerprintModule {
         this.fpGenFrames = []
         this.fpGenSelectedFrames = new Set()
     }
+
+    setupEventListeners() {
+        // Fingerprint Viewer modal
+        const closeFpViewerBtn1 = document.getElementById('closeFingerprintViewerModal');
+        if (closeFpViewerBtn1) {
+            closeFpViewerBtn1.onclick = () => this.hideFingerprintViewer();
+        }
+        const closeFpViewerBtn2 = document.getElementById('closeFingerprintViewerBtn');
+        if (closeFpViewerBtn2) {
+            closeFpViewerBtn2.onclick = () => this.hideFingerprintViewer();
+        }
+        const addMoreFpBtn = document.getElementById('addMoreFingerprintsBtn');
+        if (addMoreFpBtn) {
+            addMoreFpBtn.onclick = () => this.openFingerprintGenerationFromViewer();
+        }
+
+        // Fingerprint Generation modal
+        const closeFpGenBtn = document.getElementById('closeFingerprintGenerationModal');
+        if (closeFpGenBtn) {
+            closeFpGenBtn.onclick = () => this.closeFingerprintGenerationModal();
+        }
+        const fpGenCancelBtn = document.getElementById('fpGenCancelBtn');
+        if (fpGenCancelBtn) {
+            fpGenCancelBtn.onclick = () => this.closeFingerprintGenerationModal();
+        }
+        const fpGenGenerateBtn = document.getElementById('fpGenGenerateBtn');
+        if (fpGenGenerateBtn) {
+            fpGenGenerateBtn.onclick = () => this.generateRandomFingerprintFrames();
+        }
+        const fpGenSelectAllBtn = document.getElementById('fpGenSelectAllBtn');
+        if (fpGenSelectAllBtn) {
+            fpGenSelectAllBtn.onclick = () => this.selectAllFingerprintFrames();
+        }
+        const fpGenDeselectAllBtn = document.getElementById('fpGenDeselectAllBtn');
+        if (fpGenDeselectAllBtn) {
+            fpGenDeselectAllBtn.onclick = () => this.deselectAllFingerprintFrames();
+        }
+        const fpGenAddBtn = document.getElementById('fpGenAddSelectedBtn');
+        if (fpGenAddBtn) {
+            fpGenAddBtn.onclick = () => this.addSelectedFingerprintFrames();
+        }
+    }
 }
 
 // Export as global
