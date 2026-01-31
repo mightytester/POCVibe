@@ -91,6 +91,15 @@ class ClipperApp {
         // filter-manager.js handles search and filtering logic
         this.filterManager = new window.FilterManager(this);
 
+        // notification-manager.js handles toast notifications
+        this.notificationManager = new window.NotificationManager(this);
+
+        // menu-manager.js handles Actions Menu and Sort Submenu UI logic
+        this.menuManager = new window.MenuManager(this);
+
+        // folder-manager.js handles folder structure and group management logic
+        this.folderManager = new window.FolderManager(this);
+
         // face-recognition-module.js handles face detection, search, and cataloging (lazy)
         this._faceModule = null; // Lazy initialized
 
@@ -446,61 +455,11 @@ class ClipperApp {
         return;
     }
 
-    async loadFolderStructure() {
-        try {
-            // API returns: {groups: [...], ungrouped_folders: [...], all_folders: [...]}
-            this.folderStructure = await this.api.getFolderStructure();
-            console.log('📁 Folder structure loaded:', this.folderStructure);
+    async loadFolderStructure() { return this.folderManager.loadFolderStructure() }
 
-            // Populate folder filter dropdown
-            this.populateFolderFilter();
-        } catch (error) {
-            console.warn('⚠️ Failed to load folder structure:', error);
-            this.folderStructure = { groups: [], ungrouped_folders: [], all_folders: [] };
-        }
-    }
+    async loadFolderGroups() { return this.folderManager.loadFolderGroups() }
 
-    async loadFolderGroups() {
-        /**
-         * Load custom folder groups configuration
-         * Groups can be used to organize folders in explorer view
-         */
-        try {
-            // API returns array directly: [{id, name, icon, folders, ...}, ...]
-            const data = await this.api.getFolderGroups();
-            this.folderGroups = Array.isArray(data) ? data : [];
-            console.log('📊 Folder groups loaded:', this.folderGroups);
-        } catch (error) {
-            console.warn('⚠️ Failed to load folder groups:', error);
-            this.folderGroups = [];
-        }
-    }
-
-    async createFolderGroup(groupData) {
-        /**
-         * Create a new custom folder group
-         *
-         * groupData: {
-         *   name: "Group Name",
-         *   folders: ["FOLDER1", "FOLDER2"],
-         *   icon: "📁",
-         *   color: "#3B82F6"
-         * }
-         */
-        try {
-            const group = await this.api.createFolderGroup(groupData);
-            console.log('✅ Folder group created:', group);
-
-            // Reload groups
-            await this.loadFolderGroups();
-
-            return group;
-        } catch (error) {
-            console.error('❌ Failed to create folder group:', error);
-            this.showStatus(`Failed to create group: ${error.message}`, 'error');
-            return null;
-        }
-    }
+    async createFolderGroup(groupData) { return this.folderManager.createFolderGroup(groupData) }
 
     showCreateGroupDialog() { this.nav.showCreateGroupDialog() }
 
@@ -4491,42 +4450,14 @@ class ClipperApp {
         status.className = `status ${type}`;
     }
 
-    showNotification(message, type = 'success', duration = 3000) {
-        const container = document.getElementById('notification-container');
-        if (!container) return;
-
-        // Create notification element
-        const notification = document.createElement('div');
-        notification.className = `notification ${type}`;
-        notification.textContent = message;
-
-        container.appendChild(notification);
-
-        // Auto-dismiss notification
-        if (duration > 0) {
-            setTimeout(() => {
-                notification.classList.add('fade-out');
-                setTimeout(() => notification.remove(), 300);
-            }, duration);
-        }
-    }
+    showNotification(message, type = 'success', duration = 3000) { return this.notificationManager.showNotification(message, type, duration); }
 
     showToast(message, type = 'success', duration = 3000) {
         // Alias for backwards compatibility - now uses new notification system
         this.showNotification(message, type, duration);
     }
 
-    dismissAllNotifications() {
-        // Remove all active notifications
-        const container = document.getElementById('notification-container');
-        if (container) {
-            const notifications = container.querySelectorAll('.notification');
-            notifications.forEach(notif => {
-                notif.classList.add('fade-out');
-                setTimeout(() => notif.remove(), 300);
-            });
-        }
-    }
+    dismissAllNotifications() { return this.notificationManager.dismissAllNotifications(); }
 
     dismissAllToasts() {
         // Alias for backwards compatibility
@@ -9871,93 +9802,21 @@ This action cannot be undone. Continue?`;
     }
 
     // Actions Menu Methods
-    toggleActionsMenu() {
-        const menu = document.getElementById('actionsMenu');
-        if (menu.style.display === 'none') {
-            this.showActionsMenu();
-        } else {
-            this.hideActionsMenu();
-        }
-    }
+    toggleActionsMenu() { return this.menuManager.toggleActionsMenu() }
 
-    showActionsMenu() {
-        const menu = document.getElementById('actionsMenu');
-        menu.style.display = 'block';
-        this.updateMenuInfo();
-        this.updateSelectionModeRadio();
-        this.updateVerticalModeRadio();
-    }
+    showActionsMenu() { return this.menuManager.showActionsMenu() }
 
-    hideActionsMenu() {
-        const menu = document.getElementById('actionsMenu');
-        menu.style.display = 'none';
-        this.hideSortSubmenu();
-    }
+    hideActionsMenu() { return this.menuManager.hideActionsMenu() }
 
-    toggleSortSubmenu() {
-        const submenu = document.getElementById('sortSubmenu');
-        if (submenu.style.display === 'none') {
-            this.showSortSubmenu();
-        } else {
-            this.hideSortSubmenu();
-        }
-    }
+    toggleSortSubmenu() { return this.menuManager.toggleSortSubmenu() }
 
-    showSortSubmenu() {
-        const submenu = document.getElementById('sortSubmenu');
-        const arrow = document.getElementById('sortSubmenuArrow');
-        submenu.style.display = 'block';
-        arrow.classList.add('open');
-        this.updateSortSubmenuSelection();
-    }
+    showSortSubmenu() { return this.menuManager.showSortSubmenu() }
 
-    hideSortSubmenu() {
-        const submenu = document.getElementById('sortSubmenu');
-        const arrow = document.getElementById('sortSubmenuArrow');
-        if (submenu) {
-            submenu.style.display = 'none';
-        }
-        if (arrow) {
-            arrow.classList.remove('open');
-        }
-    }
+    hideSortSubmenu() { return this.menuManager.hideSortSubmenu() }
 
-    updateSortSubmenuSelection() {
-        // Highlight the currently selected sort option
-        document.querySelectorAll('.actions-submenu-item').forEach(item => {
-            const sortValue = item.getAttribute('data-sort');
-            if (sortValue === this.currentSort) {
-                item.classList.add('active');
-            } else {
-                item.classList.remove('active');
-            }
-        });
-    }
+    updateSortSubmenuSelection() { return this.menuManager.updateSortSubmenuSelection() }
 
-    applySortOption(sortValue) {
-        this.currentSort = sortValue;
-        this.applySorting();
-        this.saveSettingsToStorage();
-
-        // Update the menu label
-        const sortLabel = document.getElementById('menuSortLabel');
-        const sortNames = {
-            'random': 'Random',
-            'name-asc': 'Name (A-Z)',
-            'name-desc': 'Name (Z-A)',
-            'newest': 'Newest First',
-            'modified': 'Recently Modified',
-            'size-desc': 'Largest First',
-            'duration-desc': 'Longest First'
-        };
-        sortLabel.textContent = sortNames[sortValue] || 'Random';
-
-        // Also update the standalone dropdown if it exists
-        const sortSelect = document.getElementById('sortSelect');
-        if (sortSelect) {
-            sortSelect.value = sortValue;
-        }
-    }
+    applySortOption(sortValue) { return this.menuManager.applySortOption(sortValue) }
 
     updateSelectionModeRadio() {
         const toggle = document.getElementById('menuSelectionModeToggle');
@@ -9983,42 +9842,7 @@ This action cannot be undone. Continue?`;
         }
     }
 
-    async updateMenuInfo() {
-        // Update mode info
-        try {
-            const modeResponse = await fetch('/mode');
-            const modeData = await modeResponse.json();
-            const modeInfo = document.getElementById('menuModeInfo');
-            modeInfo.textContent = modeData.local_mode_enabled ? 'Local' : 'Stream';
-        } catch (error) {
-            console.error('Error fetching mode info:', error);
-        }
-
-        // Update thumbnail cache info
-        try {
-            const thumbResponse = await fetch('/thumbnails/stats');
-            const thumbData = await thumbResponse.json();
-            const thumbInfo = document.getElementById('menuThumbnailInfo');
-            thumbInfo.textContent = `${thumbData.thumbnail_count} (${thumbData.cache_size_mb.toFixed(1)} MB)`;
-        } catch (error) {
-            console.error('Error fetching thumbnail stats:', error);
-        }
-
-        // Update fingerprint library info
-        try {
-            const fingerprintResponse = await fetch(`${this.apiBase}/api/fingerprints/stats`);
-            const fingerprintData = await fingerprintResponse.json();
-            const fingerprintInfo = document.getElementById('menuFingerprintInfo');
-            if (fingerprintInfo) {
-                fingerprintInfo.innerHTML = `
-                    <span class="info-label">Library:</span>
-                    <span>${fingerprintData.fingerprinted} / ${fingerprintData.total_videos} (${fingerprintData.coverage_percent}%)</span>
-                `;
-            }
-        } catch (error) {
-            console.error('Error fetching fingerprint stats:', error);
-        }
-    }
+    async updateMenuInfo() { return this.menuManager.updateMenuInfo() }
 
     // ==================== FINGERPRINT FUNCTIONS (delegated to FingerprintModule) ====================
 
