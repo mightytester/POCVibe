@@ -15,10 +15,10 @@ from routers.roots import get_thumbnail_db
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["thumbnails"])
+router = APIRouter(prefix="/api/thumbnails", tags=["thumbnails"])
 
 
-@router.get("/api/thumbnails/{video_id}")
+@router.get("/{video_id:int}")
 async def get_thumbnail(video_id: int, request: Request, db: AsyncSession = Depends(get_db)):
     """Get thumbnail for a video from database with aggressive browser caching."""
     thumbnail_db = get_thumbnail_db()
@@ -54,7 +54,7 @@ async def get_thumbnail(video_id: int, request: Request, db: AsyncSession = Depe
     return Response(content=thumbnail_data, media_type="image/jpeg", headers=headers)
 
 
-@router.post("/api/thumbnails/generate/{video_id}")
+@router.post("/generate/{video_id:int}")
 async def generate_thumbnail(video_id: int, request: Request, db: AsyncSession = Depends(get_db)):
     """Generate thumbnail for a specific video."""
     thumbnail_db = get_thumbnail_db()
@@ -88,7 +88,7 @@ async def generate_thumbnail(video_id: int, request: Request, db: AsyncSession =
         return {"message": "Failed to generate thumbnail", "video_id": video_id, "error": True}
 
 
-@router.post("/api/thumbnails/preview/{video_id}")
+@router.post("/preview/{video_id:int}")
 async def generate_thumbnail_preview(video_id: int, time: int, db: AsyncSession = Depends(get_db)):
     """Generate temporary thumbnail preview at specified time."""
     thumbnail_db = get_thumbnail_db()
@@ -153,7 +153,7 @@ async def generate_thumbnail_preview(video_id: int, time: int, db: AsyncSession 
         raise HTTPException(status_code=500, detail=f"Preview generation failed: {str(e)}")
 
 
-@router.post("/thumbnails/cleanup")
+@router.post("/cleanup")
 async def cleanup_thumbnails(db: AsyncSession = Depends(get_db)):
     """Clean up orphaned thumbnails from database."""
     thumbnail_db = get_thumbnail_db()
@@ -170,7 +170,7 @@ async def cleanup_thumbnails(db: AsyncSession = Depends(get_db)):
     }
 
 
-@router.get("/thumbnails/stats")
+@router.get("/stats")
 async def get_thumbnail_stats():
     """Get statistics about thumbnail database."""
     thumbnail_db = get_thumbnail_db()

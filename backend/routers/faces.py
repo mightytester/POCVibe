@@ -19,12 +19,12 @@ from schemas.face import CompareFacesRequest, LinkFaceToVideoRequest, MergeFaces
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["faces"])
+router = APIRouter(prefix="/api/faces", tags=["faces"])
 
 
 # ==================== FACE SEARCH & CREATION ====================
 
-@router.post("/api/faces/search")
+@router.post("/search")
 async def search_face(
     face_image: UploadFile = File(...),
     video_id: int = Form(...),
@@ -89,7 +89,7 @@ async def search_face(
         raise HTTPException(status_code=500, detail=f"Face search failed: {str(e)}")
 
 
-@router.get("/api/faces/search")
+@router.get("/search")
 async def search_faces_by_name(
     q: str = "",
     actor_id: Optional[int] = None,
@@ -140,7 +140,7 @@ async def search_faces_by_name(
         raise HTTPException(status_code=500, detail=f"Failed to search faces: {str(e)}")
 
 
-@router.post("/api/faces/create")
+@router.post("/create")
 async def create_face(
     name: str = Form(None),
     actor_id: int = Form(None),
@@ -196,7 +196,7 @@ async def create_face(
 
 # ==================== FACE ENCODINGS ====================
 
-@router.post("/api/faces/{face_id}/add-encoding")
+@router.post("/{face_id}/add-encoding")
 async def add_encoding_to_face(
     face_id: int,
     encoding: str = Form(...),
@@ -259,7 +259,7 @@ async def add_encoding_to_face(
         raise HTTPException(status_code=500, detail=f"Failed to add encoding: {str(e)}")
 
 
-@router.delete("/api/faces/{face_id}/encodings/{encoding_id}")
+@router.delete("/{face_id}/encodings/{encoding_id}")
 async def delete_encoding_from_face(face_id: int, encoding_id: int, db: AsyncSession = Depends(get_db)):
     """
     Delete a single encoding from a face ID.
@@ -280,7 +280,7 @@ async def delete_encoding_from_face(face_id: int, encoding_id: int, db: AsyncSes
         raise HTTPException(status_code=500, detail=f"Failed to delete encoding: {str(e)}")
 
 
-@router.get("/api/faces/{face_id}/encodings")
+@router.get("/{face_id}/encodings")
 async def get_face_encodings(face_id: int, db: AsyncSession = Depends(get_db)):
     """Get all encodings for a specific face with video information."""
     try:
@@ -331,7 +331,7 @@ async def get_face_encodings(face_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Failed to get encodings: {str(e)}")
 
 
-@router.get("/api/faces/{face_id}/cleanup/encodings")
+@router.get("/{face_id}/cleanup/encodings")
 async def get_cleanup_encodings(face_id: int, threshold: float = 0.3, db: AsyncSession = Depends(get_db)):
     """
     Get encodings for cleanup view with similarity scores already calculated.
@@ -444,7 +444,7 @@ async def get_cleanup_encodings(face_id: int, threshold: float = 0.3, db: AsyncS
         raise HTTPException(status_code=500, detail=f"Failed to get cleanup data: {str(e)}")
 
 
-@router.get("/api/faces/{face_id}/best-encoding")
+@router.get("/{face_id}/best-encoding")
 async def get_best_encoding_for_face(face_id: int, db: AsyncSession = Depends(get_db)):
     """Get the best quality encoding for a face across all videos."""
     try:
@@ -497,7 +497,7 @@ async def get_best_encoding_for_face(face_id: int, db: AsyncSession = Depends(ge
         raise HTTPException(status_code=500, detail=f"Failed to get best encoding: {str(e)}")
 
 
-@router.put("/api/faces/{face_id}/primary-encoding/{encoding_id}")
+@router.put("/{face_id}/primary-encoding/{encoding_id}")
 async def set_primary_encoding(face_id: int, encoding_id: int, db: AsyncSession = Depends(get_db)):
     """Set the primary/preview encoding for a face."""
     try:
@@ -542,7 +542,7 @@ async def set_primary_encoding(face_id: int, encoding_id: int, db: AsyncSession 
 
 # ==================== FACE CATALOG & DETAILS ====================
 
-@router.get("/api/faces/catalog")
+@router.get("/catalog")
 async def get_face_catalog(db: AsyncSession = Depends(get_db)):
     """Get all faces in the catalog with their details."""
     try:
@@ -612,7 +612,7 @@ async def get_face_catalog(db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Failed to load catalog: {str(e)}")
 
 
-@router.get("/api/faces/{face_id}")
+@router.get("/{face_id}")
 async def get_face_details(face_id: int, db: AsyncSession = Depends(get_db)):
     """Get detailed information about a specific face."""
     try:
@@ -668,7 +668,7 @@ async def get_face_details(face_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Failed to load face details: {str(e)}")
 
 
-@router.get("/api/faces/{face_id}/videos")
+@router.get("/{face_id}/videos")
 async def get_face_videos(face_id: int, db: AsyncSession = Depends(get_db)):
     """Get all videos where this face appears (using VideoFace junction table)."""
     try:
@@ -723,7 +723,7 @@ async def get_face_videos(face_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Failed to get videos: {str(e)}")
 
 
-@router.get("/api/faces/{face_id}/images")
+@router.get("/{face_id}/images")
 async def get_face_images(face_id: int, db: AsyncSession = Depends(get_db)):
     """Get all images where this face appears (using VideoFace junction table)."""
     try:
@@ -779,7 +779,7 @@ async def get_face_images(face_id: int, db: AsyncSession = Depends(get_db)):
 
 # ==================== FACE UPDATE & DELETE ====================
 
-@router.put("/api/faces/{face_id}")
+@router.put("/{face_id}")
 async def update_face(
     face_id: int,
     body: dict = Body(...),
@@ -818,7 +818,7 @@ async def update_face(
         raise HTTPException(status_code=500, detail=f"Failed to update face: {str(e)}")
 
 
-@router.put("/api/faces/{face_id}/rename")
+@router.put("/{face_id}/rename")
 async def rename_face(face_id: int, request: dict, db: AsyncSession = Depends(get_db)):
     """Rename a face."""
     try:
@@ -853,7 +853,7 @@ async def rename_face(face_id: int, request: dict, db: AsyncSession = Depends(ge
         raise HTTPException(status_code=500, detail=f"Failed to rename face: {str(e)}")
 
 
-@router.delete("/api/faces/{face_id}")
+@router.delete("/{face_id}")
 async def delete_face(face_id: int, db: AsyncSession = Depends(get_db)):
     """Delete a face_id and all its encodings."""
     try:
@@ -885,7 +885,7 @@ async def delete_face(face_id: int, db: AsyncSession = Depends(get_db)):
 
 # ==================== FACE ANALYSIS & GROUPING ====================
 
-@router.get("/api/faces/{face_id}/duplicate-analysis")
+@router.get("/{face_id}/duplicate-analysis")
 async def analyze_duplicate_embeddings(face_id: int, db: AsyncSession = Depends(get_db)):
     """Analyze embeddings for duplicates and suggest which ones to keep/delete."""
     try:
@@ -1016,7 +1016,7 @@ async def analyze_duplicate_embeddings(face_id: int, db: AsyncSession = Depends(
         raise HTTPException(status_code=500, detail=f"Failed to analyze duplicates: {str(e)}")
 
 
-@router.get("/api/faces/group/similar")
+@router.get("/group/similar")
 async def group_similar_faces(threshold: float = 0.5, db: AsyncSession = Depends(get_db)):
     """
     Group all faces in catalog by similarity.
@@ -1158,7 +1158,7 @@ async def group_similar_faces(threshold: float = 0.5, db: AsyncSession = Depends
         raise HTTPException(status_code=500, detail=f"Failed to group faces: {str(e)}")
 
 
-@router.post("/api/faces/compare")
+@router.post("/compare")
 async def compare_faces(
     request: CompareFacesRequest,
     db: AsyncSession = Depends(get_db)
@@ -1269,7 +1269,7 @@ async def compare_faces(
         raise HTTPException(status_code=500, detail=f"Failed to compare faces: {str(e)}")
 
 
-@router.post("/api/faces/merge")
+@router.post("/merge")
 async def merge_faces(
     request: MergeFacesRequest,
     db: AsyncSession = Depends(get_db)
@@ -1362,7 +1362,7 @@ async def merge_faces(
 
 # ==================== FACE STATISTICS & CLEANUP ====================
 
-@router.get("/api/faces/stats")
+@router.get("/stats")
 async def get_face_stats(db: AsyncSession = Depends(get_db)):
     """Get face recognition statistics."""
     try:
@@ -1403,7 +1403,7 @@ async def get_face_stats(db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}")
 
 
-@router.post("/api/faces/cleanup-orphans")
+@router.post("/cleanup-orphans")
 async def cleanup_orphaned_faces(db: AsyncSession = Depends(get_db)):
     """Clean up orphaned faces (no encodings or no video links)."""
     try:
@@ -1442,556 +1442,3 @@ async def cleanup_orphaned_faces(db: AsyncSession = Depends(get_db)):
         logger.error(f"Error cleaning up orphaned faces: {e}")
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to cleanup faces: {str(e)}")
-
-
-# ==================== VIDEO-FACE RELATIONSHIP ENDPOINTS ====================
-
-@router.post("/api/videos/{video_id}/faces/{face_id}/link")
-async def link_face_to_video_explicit(
-    video_id: int,
-    face_id: int,
-    request: LinkFaceToVideoRequest,
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Link a face to a video (creates relationship without adding duplicate encoding).
-
-    This should be used when a face search finds a match - instead of storing
-    the encoding again, we just record that this face appears in this video.
-    """
-    try:
-        video = await db.get(Video, video_id)
-        if not video:
-            raise HTTPException(status_code=404, detail=f"Video {video_id} not found")
-
-        face = await db.get(FaceID, face_id)
-        if not face:
-            raise HTTPException(status_code=404, detail=f"Face {face_id} not found")
-
-        existing_link_result = await db.execute(
-            select(VideoFace)
-            .where(VideoFace.video_id == video_id)
-            .where(VideoFace.face_id == face_id)
-        )
-        existing_link = existing_link_result.scalar_one_or_none()
-
-        if existing_link:
-            existing_link.appearance_count += 1
-            await db.commit()
-
-            return {
-                "success": True,
-                "message": f"Face {face.name} already linked to this video (appearance count: {existing_link.appearance_count})",
-                "video_face_id": existing_link.id,
-                "appearance_count": existing_link.appearance_count,
-                "already_existed": True
-            }
-
-        video_face = VideoFace(
-            video_id=video_id,
-            face_id=face_id,
-            detection_method=request.detection_method,
-            appearance_count=1
-        )
-
-        db.add(video_face)
-        await db.commit()
-        await db.refresh(video_face)
-
-        return {
-            "success": True,
-            "message": f"Linked face {face.name} to video {video.display_name or video.name}",
-            "video_face_id": video_face.id,
-            "face_name": face.name,
-            "video_name": video.display_name or video.name,
-            "already_existed": False
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        await db.rollback()
-        logger.error(f"Error linking face to video: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to link face: {str(e)}")
-
-
-@router.get("/api/videos/{video_id}/faces")
-async def get_video_faces(video_id: int, db: AsyncSession = Depends(get_db)):
-    """Get all faces that appear in a specific video."""
-    try:
-        video = await db.get(Video, video_id)
-        if not video:
-            raise HTTPException(status_code=404, detail=f"Video {video_id} not found")
-
-        video_faces_result = await db.execute(
-            select(VideoFace, FaceID, FaceEncoding)
-            .join(FaceID, VideoFace.face_id == FaceID.id)
-            .outerjoin(
-                FaceEncoding,
-                and_(
-                    FaceEncoding.face_id == FaceID.id,
-                    FaceEncoding.video_id == video_id
-                )
-            )
-            .where(VideoFace.video_id == video_id)
-            .order_by(VideoFace.first_detected_at.desc())
-        )
-
-        results = video_faces_result.all()
-
-        faces_dict = {}
-        for video_face, face, encoding in results:
-            if face.id not in faces_dict:
-                if face.primary_encoding_id:
-                    best_encoding_result = await db.execute(
-                        select(FaceEncoding)
-                        .where(FaceEncoding.id == face.primary_encoding_id)
-                    )
-                    best_encoding = best_encoding_result.scalar_one_or_none()
-                else:
-                    best_encoding_result = await db.execute(
-                        select(FaceEncoding)
-                        .where(FaceEncoding.face_id == face.id)
-                        .order_by(FaceEncoding.quality_score.desc())
-                        .limit(1)
-                    )
-                    best_encoding = best_encoding_result.scalar_one_or_none()
-
-                all_encodings_result = await db.execute(
-                    select(FaceEncoding)
-                    .where(FaceEncoding.face_id == face.id)
-                    .order_by(FaceEncoding.quality_score.desc())
-                    .limit(200)
-                )
-                all_encodings = all_encodings_result.scalars().all()
-
-                faces_dict[face.id] = {
-                    "id": face.id,
-                    "name": face.name,
-                    "actor_id": face.actor_id,
-                    "thumbnail": best_encoding.thumbnail if best_encoding else None,
-                    "embeddings": [
-                        {
-                            "id": enc.id,
-                            "thumbnail": enc.thumbnail,
-                            "quality_score": enc.quality_score
-                        }
-                        for enc in all_encodings
-                    ],
-                    "appearance_count": video_face.appearance_count,
-                    "first_detected_at": video_face.first_detected_at,
-                    "detection_method": video_face.detection_method
-                }
-
-        return {
-            "video_id": video_id,
-            "video_name": video.name,
-            "faces": list(faces_dict.values()),
-            "total_faces": len(faces_dict)
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting video faces: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get video faces: {str(e)}")
-
-
-@router.post("/api/videos/{video_id}/faces/{face_id}")
-async def link_face_to_video(
-    video_id: int,
-    face_id: int,
-    request: LinkFaceToVideoRequest,
-    db: AsyncSession = Depends(get_db)
-):
-    """Link a face to a video (create video_faces relationship)."""
-    detection_method = request.detection_method
-    try:
-        video = await db.get(Video, video_id)
-        if not video:
-            raise HTTPException(status_code=404, detail=f"Video {video_id} not found")
-
-        face = await db.get(FaceID, face_id)
-        if not face:
-            raise HTTPException(status_code=404, detail=f"Face {face_id} not found")
-
-        existing = await db.execute(
-            select(VideoFace).where(
-                and_(
-                    VideoFace.video_id == video_id,
-                    VideoFace.face_id == face_id
-                )
-            )
-        )
-        if existing.scalar_one_or_none():
-            return {
-                "message": "Face already linked to this video",
-                "video_id": video_id,
-                "face_id": face_id
-            }
-
-        encoding_count_result = await db.execute(
-            select(func.count(FaceEncoding.id))
-            .where(
-                and_(
-                    FaceEncoding.face_id == face_id,
-                    FaceEncoding.video_id == video_id
-                )
-            )
-        )
-        encoding_count = encoding_count_result.scalar()
-
-        video_face = VideoFace(
-            video_id=video_id,
-            face_id=face_id,
-            first_detected_at=time.time(),
-            detection_method=detection_method,
-            appearance_count=encoding_count,
-            created_at=time.time()
-        )
-        db.add(video_face)
-        await db.commit()
-
-        return {
-            "success": True,
-            "message": "Face linked to video successfully",
-            "video_id": video_id,
-            "face_id": face_id,
-            "face_name": face.name,
-            "appearance_count": encoding_count
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        await db.rollback()
-        logger.error(f"Error linking face to video: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to link face: {str(e)}")
-
-
-@router.delete("/api/videos/{video_id}/faces/{face_id}")
-async def unlink_face_from_video(
-    video_id: int,
-    face_id: int,
-    db: AsyncSession = Depends(get_db)
-):
-    """Unlink a face from a video (remove video_faces relationship)."""
-    try:
-        result = await db.execute(
-            select(VideoFace).where(
-                and_(
-                    VideoFace.video_id == video_id,
-                    VideoFace.face_id == face_id
-                )
-            )
-        )
-        video_face = result.scalar_one_or_none()
-
-        if not video_face:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Face {face_id} is not linked to video {video_id}"
-            )
-
-        await db.delete(video_face)
-        await db.commit()
-
-        return {
-            "success": True,
-            "message": "Face unlinked from video successfully",
-            "video_id": video_id,
-            "face_id": face_id
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        await db.rollback()
-        logger.error(f"Error unlinking face from video: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to unlink face: {str(e)}")
-
-
-# ==================== FACE DETECTION ENDPOINTS ====================
-
-@router.post("/api/videos/{video_id}/detect-faces")
-async def detect_faces_for_review(
-    video_id: int,
-    num_frames: int = 10,
-    max_duration: Optional[float] = None,
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Detect faces in a video for user review (without auto-adding to database).
-
-    Returns detected faces with thumbnails and matching information for user to review.
-    User can then confirm which faces to add with the add-faces endpoint.
-
-    Args:
-        video_id: Video ID to scan
-        num_frames: Number of random frames to extract (default: 10, max: 50)
-        max_duration: Optional max duration in seconds to limit scanning
-
-    Returns:
-        Dictionary with detected faces, thumbnails, and match information
-    """
-    try:
-        if max_duration and max_duration > 0:
-            num_frames = 5
-            logger.info(f"Fast mode: reducing to {num_frames} frames for first {max_duration}s")
-
-        num_frames = min(max(1, num_frames), 50)
-
-        video = await db.get(Video, video_id)
-        if not video:
-            raise HTTPException(status_code=404, detail=f"Video {video_id} not found")
-
-        video_path = video.path
-        if not Path(video_path).exists():
-            raise HTTPException(
-                status_code=404,
-                detail=f"Video file not found at {video_path}"
-            )
-
-        logger.info(f"Starting face detection for review on video {video_id}: {video.name}")
-        detection_result = await face_service.detect_faces_for_review(
-            db,
-            video_id,
-            video_path,
-            num_frames,
-            video.duration if video.duration else None,
-            max_duration=max_duration
-        )
-
-        return {
-            'status': detection_result['status'],
-            'video_id': video_id,
-            'video_name': video.display_name or video.name,
-            'frames_scanned': detection_result.get('frames_scanned', 0),
-            'detected_faces': detection_result['detected_faces'],
-            'faces_with_matches': detection_result.get('faces_with_matches', 0),
-            'faces_new': detection_result.get('faces_new', 0),
-            'total_detected': len(detection_result['detected_faces']),
-            'message': detection_result.get('message', '')
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error detecting faces for review on video {video_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to detect faces: {str(e)}")
-
-
-@router.post("/api/videos/{video_id}/add-detected-faces")
-async def add_detected_faces(
-    video_id: int,
-    request: dict = Body(...),
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Add user-selected detected faces to the database.
-
-    Takes the detected faces returned by detect-faces endpoint and adds them
-    to the database after user confirms selection in the review modal.
-
-    Args:
-        video_id: Video ID
-        request: Dictionary with 'detected_faces' list containing selected faces
-
-    Returns:
-        Dictionary with results of adding faces
-    """
-    try:
-        video = await db.get(Video, video_id)
-        if not video:
-            raise HTTPException(status_code=404, detail=f"Video {video_id} not found")
-
-        detected_faces = request.get('detected_faces', [])
-        if not detected_faces:
-            return {
-                'success': True,
-                'faces_added': 0,
-                'message': 'No faces selected to add'
-            }
-
-        logger.info(f"Adding {len(detected_faces)} selected faces to video {video_id}")
-
-        face_ids_created = set()
-        face_ids_linked = set()
-
-        matched_faces = []
-        unmatched_faces = []
-
-        for face_data in detected_faces:
-            if face_data.get('is_match') and face_data.get('matched_face'):
-                matched_faces.append(face_data)
-            else:
-                unmatched_faces.append(face_data)
-
-        for face_data in matched_faces:
-            try:
-                encoding = face_service.base64_to_encoding(face_data['encoding'])
-                confidence = face_data['confidence']
-                thumbnail_b64 = face_data.get('thumbnail')
-                timestamp = face_data['timestamp']
-                matched_face = face_data['matched_face']
-                face_id = matched_face['face_id']
-
-                await face_service.add_encoding_to_face(
-                    db, face_id, video_id, timestamp,
-                    encoding, confidence, thumbnail_b64
-                )
-                face_ids_linked.add(face_id)
-                logger.debug(f"Added encoding to existing face {face_id}")
-
-            except Exception as e:
-                logger.warning(f"Error adding matched face: {e}")
-                continue
-
-        if unmatched_faces:
-            try:
-                new_face = await face_service.create_face_id(db)
-                face_id = new_face.id
-                face_ids_created.add(face_id)
-
-                logger.info(f"Created new face {new_face.id} to hold {len(unmatched_faces)} unmatched faces")
-
-                for face_data in unmatched_faces:
-                    try:
-                        encoding = face_service.base64_to_encoding(face_data['encoding'])
-                        confidence = face_data['confidence']
-                        thumbnail_b64 = face_data.get('thumbnail')
-                        timestamp = face_data['timestamp']
-
-                        await face_service.add_encoding_to_face(
-                            db, face_id, video_id, timestamp,
-                            encoding, confidence, thumbnail_b64
-                        )
-                        logger.debug(f"Added encoding to new face {face_id}")
-                    except Exception as e:
-                        logger.warning(f"Error adding encoding to new face {face_id}: {e}")
-                        continue
-
-            except Exception as e:
-                logger.warning(f"Error creating new face for unmatched faces: {e}")
-
-        unique_face_ids = face_ids_created | face_ids_linked
-
-        for face_id in unique_face_ids:
-            try:
-                existing_result = await db.execute(
-                    select(VideoFace).where(
-                        (VideoFace.video_id == video_id) & (VideoFace.face_id == face_id)
-                    )
-                )
-                existing = existing_result.scalar_one_or_none()
-
-                if not existing:
-                    video_face = VideoFace(
-                        video_id=video_id,
-                        face_id=face_id,
-                        detection_method='user_selected',
-                        appearance_count=1
-                    )
-                    db.add(video_face)
-                    logger.debug(f"Created VideoFace relationship: video {video_id} -> face {face_id}")
-                else:
-                    existing.appearance_count += 1
-
-            except Exception as e:
-                logger.error(f"Error creating VideoFace relationship for face {face_id}: {e}")
-
-        await db.commit()
-
-        logger.info(f"Added faces complete: {len(face_ids_created)} new, {len(face_ids_linked)} linked")
-
-        return {
-            'success': True,
-            'faces_added': len(unique_face_ids),
-            'new_faces': len(face_ids_created),
-            'linked_faces': len(face_ids_linked),
-            'message': f"Successfully added {len(unique_face_ids)} face(s)"
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        await db.rollback()
-        logger.error(f"Error adding detected faces: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to add faces: {str(e)}")
-
-
-@router.post("/api/videos/{video_id}/auto-scan-faces")
-async def auto_scan_faces(
-    video_id: int,
-    num_frames: int = 10,
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Auto-scan a video for faces at random frames and create/link face IDs.
-
-    Equivalent to pressing 'A' in the video player, but runs backend processing
-    without opening the player.
-
-    Args:
-        video_id: Video ID to scan
-        num_frames: Number of random frames to extract (default: 10, max: 50)
-
-    Returns:
-        Dictionary with scan results including face IDs created/linked
-    """
-    try:
-        num_frames = min(max(1, num_frames), 50)
-
-        video = await db.get(Video, video_id)
-        if not video:
-            raise HTTPException(status_code=404, detail=f"Video {video_id} not found")
-
-        video_path = video.path
-        if not Path(video_path).exists():
-            raise HTTPException(
-                status_code=404,
-                detail=f"Video file not found at {video_path}"
-            )
-
-        logger.info(f"Starting auto-scan for video {video_id}: {video.name}")
-        scan_result = await face_service.auto_scan_faces(
-            db,
-            video_id,
-            video_path,
-            num_frames,
-            video.duration if video.duration else None
-        )
-
-        if scan_result['face_ids']:
-            return {
-                'status': scan_result['status'],
-                'message': f"Auto-scan completed for {video.name}",
-                'video_id': video_id,
-                'video_name': video.display_name or video.name,
-                'detected_count': scan_result['detected_count'],
-                'new_faces_count': scan_result['new_faces_count'],
-                'linked_faces_count': scan_result['linked_faces_count'],
-                'total_unique_faces': len(scan_result['face_ids']),
-                'face_ids': scan_result['face_ids'],
-                'detections': scan_result['detections']
-            }
-        else:
-            return {
-                'status': 'completed',
-                'message': f"Auto-scan completed for {video.name} - no faces detected",
-                'video_id': video_id,
-                'video_name': video.display_name or video.name,
-                'detected_count': 0,
-                'new_faces_count': 0,
-                'linked_faces_count': 0,
-                'total_unique_faces': 0,
-                'face_ids': [],
-                'detections': []
-            }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        await db.rollback()
-        logger.error(f"Error auto-scanning faces for video {video_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to auto-scan faces: {str(e)}")

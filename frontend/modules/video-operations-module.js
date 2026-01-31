@@ -596,7 +596,7 @@ class VideoOperationsModule {
 
             // Update video in cache
             const video = this.app.videos.find(v => v.id === videoId) ||
-                         this.app.allVideos.find(v => v.id === videoId);
+                this.app.allVideos.find(v => v.id === videoId);
 
             if (video) {
                 video.category = targetCategory;
@@ -907,40 +907,7 @@ class VideoOperationsModule {
                 requestBody.favorite = favorite;
             }
 
-            const response = await fetch(`${window.CLIPPER_CONFIG.apiUrl}/videos/${this.app.currentRenameVideo.id}/update`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestBody)
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-
-                // Special handling for 409 Conflict (duplicate filename)
-                if (response.status === 409) {
-                    // Highlight the filename field
-                    const filenameInput = document.getElementById('newVideoName');
-                    if (filenameInput) {
-                        filenameInput.style.borderColor = '#ef4444';
-                        filenameInput.style.boxShadow = '0 0 0 3px rgba(239, 68, 68, 0.1)';
-                        filenameInput.focus();
-
-                        // Reset highlight after 3 seconds
-                        setTimeout(() => {
-                            filenameInput.style.borderColor = '';
-                            filenameInput.style.boxShadow = '';
-                        }, 3000);
-                    }
-
-                    throw new Error(errorData.detail || 'A video with this filename already exists in this folder');
-                }
-
-                throw new Error(errorData.detail || `HTTP ${response.status}`);
-            }
-
-            const result = await response.json();
+            const result = await this.app.api.updateVideo(this.app.currentRenameVideo.id, requestBody);
             console.log('Video updated successfully:', result);
 
             this.hideRenameModal();
@@ -1076,22 +1043,17 @@ class VideoOperationsModule {
             console.log(`🔄 Refreshing video data for video ${videoId}...`);
 
             // Step 1: Regenerate thumbnail
-            const thumbnailResponse = await fetch(`${this.app.apiBase}/api/thumbnails/generate/${videoId}`, {
-                method: 'POST'
-            });
-
-            if (!thumbnailResponse.ok) {
-                console.warn('Failed to regenerate thumbnail, continuing...');
+            try {
+                await this.app.api.generateThumbnail(videoId);
+            } catch (err) {
+                console.warn('Failed to regenerate thumbnail, continuing...', err);
             }
 
             // Step 2: Fetch fresh video data with all metadata (tags, actors, faces)
-            const videoResponse = await fetch(`${this.app.apiBase}/api/videos/${videoId}`);
-
-            if (!videoResponse.ok) {
+            const freshVideoData = await this.app.api.getVideo(videoId);
+            if (!freshVideoData) {
                 throw new Error('Failed to fetch video data');
             }
-
-            const freshVideoData = await videoResponse.json();
 
             // Step 3: Update video in memory (both arrays)
             const cacheBuster = Date.now();

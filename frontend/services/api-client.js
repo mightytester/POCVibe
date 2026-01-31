@@ -99,6 +99,25 @@ class ClipperAPIClient {
         });
     }
 
+    async hashRename(videoId) {
+        return this.request(`/api/videos/${videoId}/hash-rename`, {
+            method: 'POST'
+        });
+    }
+
+    async toggleFinal(videoId) {
+        return this.request(`/api/videos/${videoId}/toggle-final`, {
+            method: 'POST'
+        });
+    }
+
+    async bulkUpdateVideos(data) {
+        return this.request('/api/videos/bulk-update', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+    }
+
     async extractFolderMetadata(folderName) {
         return this.request(`/api/videos/folder/${encodeURIComponent(folderName)}/extract-metadata`, {
             method: 'POST'
@@ -202,6 +221,10 @@ class ClipperAPIClient {
         });
     }
 
+    async getThumbnailStats() {
+        return this.request('/api/thumbnails/stats');
+    }
+
     getThumbnailUrl(videoId, bustCache = false) {
         const timestamp = Date.now();
         const cacheParam = bustCache ? `&bustCache=${Math.random()}` : '';
@@ -209,6 +232,41 @@ class ClipperAPIClient {
     }
 
     // ============ Face API ============
+
+    async detectFaces(videoId, options = {}) {
+        const params = new URLSearchParams();
+        if (options.num_frames) params.set('num_frames', options.num_frames);
+        if (options.max_duration) params.set('max_duration', options.max_duration);
+
+        const queryString = params.toString();
+        const endpoint = `/api/videos/${videoId}/detect-faces${queryString ? `?${queryString}` : ''}`;
+
+        return this.request(endpoint, { method: 'POST' });
+    }
+
+    async addDetectedFaces(videoId, detectedFaces) {
+        return this.request(`/api/videos/${videoId}/add-detected-faces`, {
+            method: 'POST',
+            body: JSON.stringify({ detected_faces: detectedFaces })
+        });
+    }
+
+    async autoScanFaces(videoId, num_frames = 10) {
+        return this.request(`/api/videos/${videoId}/auto-scan-faces?num_frames=${num_frames}`, {
+            method: 'POST'
+        });
+    }
+
+    async getVideoFaces(videoId) {
+        return this.request(`/api/videos/${videoId}/faces`);
+    }
+
+    async linkFaceToVideo(videoId, faceId, detectionMethod = 'manual') {
+        return this.request(`/api/videos/${videoId}/faces/${faceId}`, {
+            method: 'POST',
+            body: JSON.stringify({ detection_method: detectionMethod })
+        });
+    }
 
     async searchFaces(encoding, threshold = 0.6) {
         return this.request('/api/faces/search', {
@@ -317,6 +375,13 @@ class ClipperAPIClient {
     }
 
     // ============ Search API ============
+
+    async getMetadataSuggestions(field = null) {
+        const endpoint = field
+            ? `/api/videos/metadata/suggestions?field=${field}`
+            : '/api/videos/metadata/suggestions';
+        return this.request(endpoint);
+    }
 
     async searchVideos(params = {}) {
         const queryString = new URLSearchParams(params).toString();

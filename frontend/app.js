@@ -839,18 +839,9 @@ class ClipperApp {
         try {
             console.log(`🔄 Starting refreshVideoFaces for video ID: ${videoId}`);
 
-            // Fetch updated face data for this video with cache busting
-            const timestamp = Date.now();
-            const response = await fetch(`${this.apiBase}/api/videos/${videoId}/faces?_t=${timestamp}&cache=${Math.random()}`, {
-                cache: 'no-store'
-            });
-            if (!response.ok) {
-                console.error('❌ Failed to fetch video faces - HTTP', response.status);
-                return;
-            }
-
-            const data = await response.json();
-            const updatedFaces = data.faces;
+            // Fetch updated face data for this video
+            const data = await this.api.getVideoFaces(videoId);
+            const updatedFaces = data.faces || [];
 
             console.log(`✓ Fetched ${updatedFaces.length} face(s) from backend:`, updatedFaces);
 
@@ -3122,21 +3113,11 @@ class ClipperApp {
     async loadMetadataSuggestions() {
         try {
             // Load suggestions for channel, series, and year in parallel
-            const [channelRes, seriesRes, yearRes] = await Promise.all([
-                fetch(`${this.apiBase}/api/metadata/suggestions?field=channel`),
-                fetch(`${this.apiBase}/api/metadata/suggestions?field=series`),
-                fetch(`${this.apiBase}/api/metadata/suggestions?field=year`)
+            const [channelData, seriesData, yearData] = await Promise.all([
+                this.api.getMetadataSuggestions('channel'),
+                this.api.getMetadataSuggestions('series'),
+                this.api.getMetadataSuggestions('year')
             ]);
-
-            // Check if all responses are successful
-            if (!channelRes.ok || !seriesRes.ok || !yearRes.ok) {
-                console.warn('Some metadata suggestions failed to load');
-                return;
-            }
-
-            const channelData = await channelRes.json();
-            const seriesData = await seriesRes.json();
-            const yearData = await yearRes.json();
 
             // Populate datalist elements with validation
             if (channelData.suggestions && Array.isArray(channelData.suggestions)) {
@@ -3942,25 +3923,18 @@ class ClipperApp {
                 }
 
                 // Then mark as final
-                const finalResponse = await fetch(`${this.apiBase}/videos/${videoId}/toggle-final`, {
-                    method: 'POST'
-                });
-
-                if (finalResponse.ok) {
-                    const finalData = await finalResponse.json();
+                try {
+                    const finalData = await this.api.toggleFinal(videoId);
                     if (video) {
                         video.is_final = finalData.is_final;
                     }
+                } catch (err) {
+                    console.error('Error toggling final status:', err);
                 }
 
                 // Then hash rename
-                const renameResponse = await fetch(`/api/videos/${videoId}/hash-rename`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-
-                if (renameResponse.ok) {
-                    const renameResult = await renameResponse.json();
+                try {
+                    const renameResult = await this.api.hashRename(videoId);
                     if (renameResult.video) {
                         // Update arrays with the renamed video (which has updated relative_path)
                         const videoIndex = this.videos.findIndex(v => v.id === videoId);
@@ -3974,6 +3948,8 @@ class ClipperApp {
                         // Use the updated video from rename response for card creation
                         video = renameResult.video;
                     }
+                } catch (err) {
+                    console.error('Error hash renaming:', err);
                 }
 
                 this.hideSceneDescriptionModal();
@@ -5119,10 +5095,11 @@ class ClipperApp {
             }
 
             if (!video) {
-                const response = await fetch(`${this.apiBase}/api/videos/${videoId}`);
-                if (!response.ok) throw new Error('Failed to load video');
-                const data = await response.json();
-                video = data.video || {};
+                const freshVideoData = await this.api.getVideo(videoId);
+                if (freshVideoData) {
+                    this.currentVideo = freshVideoData;
+                }
+                video = freshVideoData || {}; // Assuming getVideo returns the video object directly
             }
 
             const faces = video.faces || [];
@@ -7250,13 +7227,9 @@ class ClipperApp {
             // Show loading overlay with animation
             this.showFaceScanningOverlay(video.display_name || video.name, modeLabel);
 
-            const params = new URLSearchParams({ num_frames: numFrames });
-            if (maxDuration) {
-                params.append('max_duration', maxDuration);
-            }
-
-            const response = await fetch(`/api/videos/${videoId}/detect-faces?${params}`, {
-                method: 'POST'
+            const response = await this.api.detectFaces(videoId, {
+                num_frames: document.getElementById('numFrames')?.value || 10,
+                max_duration: document.getElementById('scanDuration')?.value || null
             });
 
             // Hide loading overlay
