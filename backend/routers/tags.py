@@ -12,7 +12,7 @@ from routers.roots import get_thumbnail_db
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["tags"])
+router = APIRouter(prefix="/api/tags", tags=["tags"])
 
 
 @router.post("/videos/{video_id}/tags")
@@ -42,7 +42,7 @@ async def remove_tag_from_video(
     return {"message": "Tag removed from video"}
 
 
-@router.get("/tags")
+@router.get("")
 async def get_all_tags(db: AsyncSession = Depends(get_db)):
     """Get all available tags."""
     service = VideoService(db, get_thumbnail_db())
@@ -50,8 +50,8 @@ async def get_all_tags(db: AsyncSession = Depends(get_db)):
     return [{"id": tag.id, "name": tag.name, "color": tag.color} for tag in tags]
 
 
-# NOTE: /tags/unused routes must come BEFORE /tags/{tag_id} to avoid route conflicts
-@router.get("/tags/unused")
+# NOTE: /unused routes must come BEFORE /{tag_id} to avoid route conflicts
+@router.get("/unused")
 async def get_unused_tags(db: AsyncSession = Depends(get_db)):
     """Get all tags that are not assigned to any videos."""
     service = VideoService(db, get_thumbnail_db())
@@ -59,7 +59,7 @@ async def get_unused_tags(db: AsyncSession = Depends(get_db)):
     return [{"id": tag.id, "name": tag.name, "color": tag.color} for tag in unused_tags]
 
 
-@router.delete("/tags/unused")
+@router.delete("/unused")
 async def delete_unused_tags(db: AsyncSession = Depends(get_db)):
     """Delete all tags that are not assigned to any videos."""
     service = VideoService(db, get_thumbnail_db())
@@ -67,7 +67,7 @@ async def delete_unused_tags(db: AsyncSession = Depends(get_db)):
     return {"message": f"Deleted {count} unused tag(s)", "deleted_count": count}
 
 
-@router.delete("/tags/{tag_id}")
+@router.delete("/{tag_id}")
 async def delete_tag(tag_id: int, db: AsyncSession = Depends(get_db)):
     """Delete a tag completely (removes from all videos)."""
     service = VideoService(db, get_thumbnail_db())
@@ -79,7 +79,7 @@ async def delete_tag(tag_id: int, db: AsyncSession = Depends(get_db)):
     return {"message": "Tag deleted successfully", "tag_id": tag_id}
 
 
-@router.put("/tags/{tag_id}")
+@router.put("/{tag_id}")
 async def rename_tag(tag_id: int, new_name: str, db: AsyncSession = Depends(get_db)):
     """Rename a tag (affects all videos with this tag)."""
     service = VideoService(db, get_thumbnail_db())
@@ -98,7 +98,7 @@ async def rename_tag(tag_id: int, new_name: str, db: AsyncSession = Depends(get_
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/tags/regenerate-colors")
+@router.post("/regenerate-colors")
 async def regenerate_tag_colors(db: AsyncSession = Depends(get_db)):
     """Regenerate colors for all existing tags based on their names."""
     from color_utils import generate_vibrant_color

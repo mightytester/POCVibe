@@ -34,13 +34,13 @@ async def api_root():
     return {"message": "Clipper API is running"}
 
 
-@router.get("/health")
+@router.get("/api/health")
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy"}
 
 
-@router.get("/config")
+@router.get("/api/config")
 async def get_config():
     """Get current configuration."""
     return {
@@ -51,7 +51,7 @@ async def get_config():
     }
 
 
-@router.get("/mode")
+@router.get("/api/mode")
 async def get_mode_info():
     """Get current video access mode information."""
     return {

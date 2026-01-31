@@ -46,7 +46,12 @@ class ClipperAPIClient {
 
     // ============ Video API ============
 
-    async getVideos(params = {}) {
+    async getVideos(category = null, subcategory = null, bustCache = false) {
+        const params = {};
+        if (category) params.category = category;
+        if (subcategory) params.subcategory = subcategory;
+        if (bustCache) params._t = Date.now();
+
         const queryString = new URLSearchParams(params).toString();
         return this.request(`/api/videos${queryString ? `?${queryString}` : ''}`);
     }
@@ -127,35 +132,35 @@ class ClipperAPIClient {
     // ============ Folder Group API ============
 
     async getFolderStructure() {
-        return this.request('/folder-structure');
+        return this.request('/api/folders/structure');
     }
 
     async getFolderGroups() {
-        return this.request('/folder-groups');
+        return this.request('/api/folders/groups');
     }
 
     async createFolderGroup(data) {
-        return this.request('/folder-groups', {
+        return this.request('/api/folders/groups', {
             method: 'POST',
             body: JSON.stringify(data)
         });
     }
 
     async updateFolderGroup(groupId, data) {
-        return this.request(`/folder-groups/${groupId}`, {
+        return this.request(`/api/folders/groups/${groupId}`, {
             method: 'PUT',
             body: JSON.stringify(data)
         });
     }
 
     async deleteFolderGroup(groupId) {
-        return this.request(`/folder-groups/${groupId}`, {
+        return this.request(`/api/folders/groups/${groupId}`, {
             method: 'DELETE'
         });
     }
 
     async reorderFolderGroup(groupId, direction) {
-        return this.request(`/folder-groups/${groupId}/reorder`, {
+        return this.request(`/api/folders/groups/${groupId}/reorder`, {
             method: 'PATCH',
             body: JSON.stringify({ direction })
         });
@@ -164,25 +169,24 @@ class ClipperAPIClient {
     // ============ Tag API ============
 
     async getTags() {
-        return this.request('/tags');
+        return this.request('/api/tags');
     }
 
     async createTag(name, color) {
-        return this.request('/tags', {
+        return this.request('/api/tags', {
             method: 'POST',
             body: JSON.stringify({ name, color })
         });
     }
 
-    async addTagToVideo(videoId, tagId) {
-        return this.request(`/videos/${videoId}/tags`, {
-            method: 'POST',
-            body: JSON.stringify({ tag_id: tagId })
+    async addTagToVideo(videoId, tagName) {
+        return this.request(`/api/tags/videos/${videoId}/tags?tag_name=${encodeURIComponent(tagName)}`, {
+            method: 'POST'
         });
     }
 
     async removeTagFromVideo(videoId, tagId) {
-        return this.request(`/videos/${videoId}/tags/${tagId}`, {
+        return this.request(`/api/tags/videos/${videoId}/tags/${tagId}`, {
             method: 'DELETE'
         });
     }
@@ -190,25 +194,25 @@ class ClipperAPIClient {
     // ============ Actor API ============
 
     async getActors() {
-        return this.request('/actors');
+        return this.request('/api/actors');
     }
 
     async createActor(name, notes = '') {
-        return this.request('/actors', {
+        return this.request('/api/actors', {
             method: 'POST',
             body: JSON.stringify({ name, notes })
         });
     }
 
-    async addActorToVideo(videoId, actorId) {
-        return this.request(`/videos/${videoId}/actors`, {
+    async addActorToVideo(videoId, actorName) {
+        return this.request(`/api/actors/videos/${videoId}/actors`, {
             method: 'POST',
-            body: JSON.stringify({ actor_id: actorId })
+            body: JSON.stringify({ actor_name: actorName })
         });
     }
 
     async removeActorFromVideo(videoId, actorId) {
-        return this.request(`/videos/${videoId}/actors/${actorId}`, {
+        return this.request(`/api/actors/videos/${videoId}/actors/${actorId}`, {
             method: 'DELETE'
         });
     }
@@ -385,33 +389,33 @@ class ClipperAPIClient {
 
     async searchVideos(params = {}) {
         const queryString = new URLSearchParams(params).toString();
-        return this.request(`/search?${queryString}`);
+        return this.request(`/api/search?${queryString}`);
     }
 
     // ============ Scan API ============
 
-    async scanAll(syncDb = true, pruneMissing = true) {
-        return this.request(`/scan?sync_db=${syncDb}&prune_missing=${pruneMissing}`);
+    async scanAll(syncDb = true, pruneMissing = true, fastMode = true) {
+        return this.request(`/api/scan?sync_db=${syncDb}&prune_missing=${pruneMissing}&fast_mode=${fastMode}`);
     }
 
     async scanFolder(folderName) {
-        return this.request(`/scan/folder/${encodeURIComponent(folderName)}`, {
+        return this.request(`/api/scan/folder/${encodeURIComponent(folderName)}`, {
             method: 'POST'
         });
     }
 
     async getScanStatus() {
-        return this.request('/scan/status');
+        return this.request('/api/scan/status');
     }
 
     async scanFolderSmartRefresh(folderName) {
-        return this.request(`/scan/folder/${encodeURIComponent(folderName)}/smart-refresh`, {
+        return this.request(`/api/scan/folder/${encodeURIComponent(folderName)}/smart-refresh`, {
             method: 'POST'
         });
     }
 
     async scanFolderScanOnly(folderName) {
-        return this.request(`/scan/folder/${encodeURIComponent(folderName)}/scan-only`, {
+        return this.request(`/api/scan/folder/${encodeURIComponent(folderName)}/scan-only`, {
             method: 'POST'
         });
     }
@@ -424,12 +428,12 @@ class ClipperAPIClient {
         if (options.syncDb !== undefined) params.set('sync_db', options.syncDb);
 
         const queryString = params.toString();
-        const url = `/scan/folder/${encodeURIComponent(folderName)}${queryString ? '?' + queryString : ''}`;
+        const url = `/api/scan/folder/${encodeURIComponent(folderName)}${queryString ? '?' + queryString : ''}`;
         return this.request(url, { method: 'POST' });
     }
 
     async scanSingleVideo(folderName, filename) {
-        return this.request('/scan/video/single', {
+        return this.request('/api/scan/video/single', {
             method: 'POST',
             body: JSON.stringify({
                 folder_name: folderName,
@@ -473,8 +477,20 @@ class ClipperAPIClient {
         return `${this.baseUrl}/stream/${encodeURIComponent(category)}/${encodeURIComponent(videoPath)}`;
     }
 
+    async getModeInfo() {
+        return this.request('/api/mode');
+    }
+
+    async getFingerprintStats() {
+        return this.request('/api/fingerprints/stats');
+    }
+
+    async getConfig() {
+        return this.request('/api/config');
+    }
+
     async healthCheck() {
-        return this.request('/health');
+        return this.request('/api/health');
     }
 }
 

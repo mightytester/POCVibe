@@ -132,13 +132,7 @@ class NavigationModule {
                 apiPath += `?t=${Date.now()}&bust=${Math.random()}`;
             }
 
-            const response = await fetch(apiPath, { cache: skipCache ? 'no-store' : 'default' });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            const data = await response.json();
+            const data = await this.app.api.getVideos(category, subcategory, skipCache);
             this.app.videos = data.videos || [];
 
             // ✅ CRITICAL: Set allVideos too so filtering/face detection works in folder view
@@ -168,13 +162,7 @@ class NavigationModule {
             document.getElementById('folderExplorer').style.display = 'none';
             document.getElementById('videoGrid').style.display = 'grid';
 
-            // Load videos for this specific folder with cache busting
-            const timestamp = Date.now();
-            const response = await fetch(
-                `${this.app.apiBase}/videos/${category}/${subcategory}?_t=${timestamp}&cache=${Math.random()}`,
-                { cache: 'no-store' }
-            );
-            const data = await response.json();
+            const data = await this.app.api.getVideos(category, subcategory, true);
 
             this.app.videos = data.videos || [];
             // ✅ IMPORTANT: Set allVideos too so face filtering works in folder view
@@ -1200,15 +1188,11 @@ class NavigationModule {
                     if (updatedFolders.length !== group.folders.length) {
                         if (updatedFolders.length > 0) {
                             // Group still has folders, just update it
-                            await fetch(`${this.app.apiBase}/folder-groups/${group.id}`, {
-                                method: 'PUT',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    name: group.name,
-                                    folders: updatedFolders,
-                                    icon: group.icon,
-                                    color: group.color
-                                })
+                            await this.app.api.updateFolderGroup(group.id, {
+                                name: group.name,
+                                icon: group.icon,
+                                color: group.color,
+                                folders: updatedFolders
                             });
                             console.log(`✅ Removed folders from group "${group.name}"`);
                         }
@@ -1218,26 +1202,9 @@ class NavigationModule {
             }
 
             // Now update this group
-            const response = await fetch(`${this.app.apiBase}/folder-groups/${groupId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name,
-                    folders,
-                    icon,
-                    color
-                })
+            const updatedGroup = await this.app.api.updateFolderGroup(groupId, {
+                name, icon, color, folders
             });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                const errorMsg = errorData.detail || `HTTP ${response.status}`;
-                this.app.showStatus(`Failed to update group: ${errorMsg}`, 'error');
-                throw new Error(errorMsg);
-            }
-
-            // Backend returns group object directly (not wrapped)
-            const updatedGroup = await response.json();
             console.log('✅ Folder group updated:', updatedGroup);
 
             // Reload groups
@@ -1255,6 +1222,7 @@ class NavigationModule {
             }
         } catch (error) {
             console.error('❌ Failed to update folder group:', error);
+            this.app.showStatus(`Failed to update group: ${error.message}`, 'error');
         }
     }
 
@@ -1349,16 +1317,7 @@ class NavigationModule {
          * Confirm deletion and delete the group
          */
         try {
-            const response = await fetch(`${this.app.apiBase}/folder-groups/${groupId}`, {
-                method: 'DELETE'
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                const errorMsg = errorData.detail || `HTTP ${response.status}`;
-                this.app.showStatus(`Failed to delete group: ${errorMsg}`, 'error');
-                throw new Error(errorMsg);
-            }
+            await this.app.api.deleteFolderGroup(groupId);
 
             console.log('✅ Folder group deleted');
 

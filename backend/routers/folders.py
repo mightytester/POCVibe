@@ -20,7 +20,7 @@ from routers.roots import get_thumbnail_db
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["folders"])
+router = APIRouter(prefix="/api/folders", tags=["folders"])
 
 
 def parse_folders(folders_str):
@@ -42,7 +42,7 @@ def serialize_folders(folders_list):
     return json.dumps(folders_list)
 
 
-@router.get("/folder-structure")
+@router.get("/structure")
 async def get_folder_structure_groups(db: AsyncSession = Depends(get_db)):
     """Get folder structure with groups for sidebar navigation."""
     from file_scanner import scanner
@@ -86,7 +86,7 @@ async def get_folder_structure_groups(db: AsyncSession = Depends(get_db)):
     }
 
 
-@router.get("/folder-groups")
+@router.get("/groups")
 async def get_folder_groups(db: AsyncSession = Depends(get_db)):
     """Get all folder groups."""
     result = await db.execute(
@@ -108,7 +108,7 @@ async def get_folder_groups(db: AsyncSession = Depends(get_db)):
     } for g in groups]
 
 
-@router.post("/folder-groups")
+@router.post("/groups")
 async def create_folder_group(
     body: FolderGroupCreate,
     db: AsyncSession = Depends(get_db)
@@ -160,7 +160,7 @@ async def create_folder_group(
     }
 
 
-@router.put("/folder-groups/{group_id}")
+@router.put("/groups/{group_id}")
 async def update_folder_group(
     group_id: str,
     body: FolderGroupUpdate,
@@ -216,7 +216,7 @@ async def update_folder_group(
     }
 
 
-@router.delete("/folder-groups/{group_id}")
+@router.delete("/groups/{group_id}")
 async def delete_folder_group(
     group_id: str,
     db: AsyncSession = Depends(get_db)
@@ -235,7 +235,7 @@ async def delete_folder_group(
     return {"message": "Group deleted", "group_id": group_id}
 
 
-@router.patch("/folder-groups/{group_id}/reorder")
+@router.patch("/groups/{group_id}/reorder")
 async def reorder_folder_group(
     group_id: str,
     body: FolderGroupReorder,
@@ -303,7 +303,7 @@ async def reorder_folder_group(
     } for g in groups]
 
 
-@router.post("/api/folders/rename")
+@router.post("/rename")
 async def rename_folder(
     body: RenameFolderRequest,
     db: AsyncSession = Depends(get_db)
@@ -349,7 +349,7 @@ async def rename_folder(
         raise HTTPException(status_code=500, detail=str(re))
 
 
-@router.post("/api/folders/bulk-hash-rename")
+@router.post("/bulk-hash-rename")
 async def bulk_hash_rename_videos(
     body: BulkHashRenameRequest,
     db: AsyncSession = Depends(get_db)

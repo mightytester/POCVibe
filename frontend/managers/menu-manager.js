@@ -25,8 +25,10 @@ class MenuManager {
 
         menu.style.display = 'block';
         this.updateMenuInfo();
-        this.app.updateSelectionModeRadio();
-        this.app.updateVerticalModeRadio();
+
+        // Sync toggles if methods exist on app
+        if (this.app.updateSelectionModeRadio) this.app.updateSelectionModeRadio();
+        if (this.app.updateVerticalModeRadio) this.app.updateVerticalModeRadio();
     }
 
     hideActionsMenu() {
@@ -81,8 +83,9 @@ class MenuManager {
 
     applySortOption(sortValue) {
         this.app.currentSort = sortValue;
-        this.app.applySorting();
-        this.app.saveSettingsToStorage();
+
+        if (this.app.applySorting) this.app.applySorting();
+        if (this.app.saveSettingsToStorage) this.app.saveSettingsToStorage();
 
         // Update the menu label
         const sortLabel = document.getElementById('menuSortLabel');
@@ -109,34 +112,43 @@ class MenuManager {
     async updateMenuInfo() {
         // Update mode info
         try {
-            const modeResponse = await fetch('/mode');
-            const modeData = await modeResponse.json();
-            const modeInfo = document.getElementById('menuModeInfo');
-            if (modeInfo) modeInfo.textContent = modeData.local_mode_enabled ? 'Local' : 'Stream';
+            const modeResults = await this.app.api.getModeInfo();
+            const modeInfoEl = document.getElementById('menuModeInfo');
+            if (modeInfoEl) modeInfoEl.textContent = modeResults.local_mode_enabled ? 'Local' : 'Stream';
+
+            if (this.app.updateVideoAccessMode) {
+                this.app.updateVideoAccessMode(modeResults.local_mode_enabled);
+            }
         } catch (error) {
             console.error('Error fetching mode info:', error);
         }
 
         // Update thumbnail cache info
         try {
-            const thumbResponse = await fetch('/thumbnails/stats');
-            const thumbData = await thumbResponse.json();
-            const thumbInfo = document.getElementById('menuThumbnailInfo');
-            if (thumbInfo) thumbInfo.textContent = `${thumbData.thumbnail_count} (${thumbData.cache_size_mb.toFixed(1)} MB)`;
+            const thumbData = await this.app.api.getThumbnailStats();
+            const thumbInfoEl = document.getElementById('menuThumbnailInfo');
+            if (thumbInfoEl) thumbInfoEl.textContent = `${thumbData.thumbnail_count} (${thumbData.cache_size_mb.toFixed(1)} MB)`;
+
+            if (this.app.updateThumbnailStats) {
+                this.app.updateThumbnailStats(thumbData);
+            }
         } catch (error) {
             console.error('Error fetching thumbnail stats:', error);
         }
 
         // Update fingerprint library info
         try {
-            const fingerprintResponse = await fetch(`${this.app.apiBase}/api/fingerprints/stats`);
-            const fingerprintData = await fingerprintResponse.json();
-            const fingerprintInfo = document.getElementById('menuFingerprintInfo');
-            if (fingerprintInfo) {
-                fingerprintInfo.innerHTML = `
+            const fingerprintData = await this.app.api.getFingerprintStats();
+            const fingerprintInfoEl = document.getElementById('menuFingerprintInfo');
+            if (fingerprintInfoEl) {
+                fingerprintInfoEl.innerHTML = `
                     <span class="info-label">Library:</span>
                     <span>${fingerprintData.fingerprinted} / ${fingerprintData.total_videos} (${fingerprintData.coverage_percent}%)</span>
                 `;
+            }
+
+            if (this.app.updateFingerprintStats) {
+                this.app.updateFingerprintStats(fingerprintData);
             }
         } catch (error) {
             console.error('Error fetching fingerprint stats:', error);
@@ -306,4 +318,5 @@ class MenuManager {
     }
 }
 
+// Export for usage
 window.MenuManager = MenuManager;

@@ -18,10 +18,10 @@ from routers.roots import get_thumbnail_db
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["scan"])
+router = APIRouter(prefix="/api/scan", tags=["scan"])
 
 
-@router.get("/scan")
+@router.get("")
 async def scan_videos(
     sync_db: bool = True,
     prune_missing: bool = True,
@@ -118,7 +118,7 @@ async def get_subfolders():
     }
 
 
-@router.post("/scan/folder/{folder_name}/scan-only")
+@router.post("/folder/{folder_name}/scan-only")
 async def scan_folder_files_only(
     folder_name: str,
     db: AsyncSession = Depends(get_db)
@@ -214,7 +214,7 @@ async def scan_folder_files_only(
     }
 
 
-@router.post("/scan/folder/{folder_name}/smart-refresh")
+@router.post("/folder/{folder_name}/smart-refresh")
 async def smart_refresh_folder(
     folder_name: str,
     db: AsyncSession = Depends(get_db)
@@ -303,7 +303,7 @@ async def smart_refresh_folder(
     }
 
 
-@router.post("/scan/video/single")
+@router.post("/video/single")
 async def scan_single_video(
     folder_name: str = Body(...),
     filename: str = Body(...),
@@ -371,7 +371,7 @@ async def scan_single_video(
         raise HTTPException(status_code=500, detail=f"Error scanning video: {str(e)}")
 
 
-@router.post("/scan/folder/{folder_name}")
+@router.post("/folder/{folder_name}")
 async def scan_folder(
     folder_name: str,
     recursive: bool = True,
@@ -490,7 +490,7 @@ async def scan_folder(
     return result
 
 
-@router.get("/scan/status")
+@router.get("/status")
 async def get_scan_status(db: AsyncSession = Depends(get_db)):
     """Get scan status for all folders."""
     physical_folders = []

@@ -13,10 +13,10 @@ from schemas.actor import AddActorRequest, UpdateActorRequest
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["actors"])
+router = APIRouter(prefix="/api/actors", tags=["actors"])
 
 
-@router.get("/actors/search")
+@router.get("/search")
 async def search_actors(
     q: str = "",
     limit: int = 20,
@@ -44,7 +44,7 @@ async def search_actors(
     } for actor in actors]
 
 
-@router.get("/actors")
+@router.get("")
 async def get_all_actors(
     limit: int = 100,
     offset: int = 0,
@@ -73,7 +73,7 @@ async def get_all_actors(
     } for actor in actors]
 
 
-@router.post("/actors")
+@router.post("")
 async def create_actor(
     body: dict,
     db: AsyncSession = Depends(get_db)
@@ -232,7 +232,7 @@ async def remove_actor_from_video(
         raise HTTPException(status_code=404, detail="Actor not assigned to this video")
 
 
-@router.delete("/actors/{actor_id}")
+@router.delete("/{actor_id}")
 async def delete_actor(actor_id: int, db: AsyncSession = Depends(get_db)):
     """Delete an actor (only if not assigned to any videos)."""
     actor_result = await db.execute(select(Actor).where(Actor.id == actor_id))
@@ -253,7 +253,7 @@ async def delete_actor(actor_id: int, db: AsyncSession = Depends(get_db)):
     return {"message": "Actor deleted successfully", "actor_id": actor_id}
 
 
-@router.put("/actors/{actor_id}")
+@router.put("/{actor_id}")
 async def update_actor(
     actor_id: int,
     body: UpdateActorRequest,

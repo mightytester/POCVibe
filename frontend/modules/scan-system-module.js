@@ -425,14 +425,6 @@ class ScanSystemModule {
             this.app.showRefreshLoadingOverlay()
 
             // Call scan with prune_missing=true to remove deleted files
-            const response = await fetch(`${this.app.apiBase}/scan?sync_db=true&prune_missing=true&fast_mode=true`, {
-                method: 'GET',
-                headers: { 'Content-Type': 'application/json' }
-            })
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`)
-            }
 
             const data = await response.json()
             const pruned = data.pruned_missing || 0

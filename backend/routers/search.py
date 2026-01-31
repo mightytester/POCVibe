@@ -12,10 +12,10 @@ from routers.roots import get_thumbnail_db
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["search"])
+router = APIRouter(prefix="/api/search", tags=["search"])
 
 
-@router.get("/search")
+@router.get("")
 async def search_videos(
     q: str = "",
     tags: str = "",

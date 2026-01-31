@@ -334,8 +334,7 @@ class ClipperApp {
 
     async loadModeConfiguration() {
         try {
-            const response = await fetch(`${this.apiBase}/mode`);
-            const modeInfo = await response.json();
+            const modeInfo = await this.api.getModeInfo();
 
             // Simple: only need to know if local mode is enabled
             this.localMode.enabled = modeInfo.local_mode_enabled;
@@ -2178,7 +2177,7 @@ class ClipperApp {
         this.videoPlayer.setupEventListeners();
         this.imageViewer.setupEventListeners();
         this.fingerprint.setupEventListeners();
-        this.faceRecognition.setupEventListeners();
+        this.faceModule.setupEventListeners();
         this.seriesModule.setupEventListeners();
         this.tagModule.setupEventListeners();
         this.actorModule.setupEventListeners();
@@ -3158,8 +3157,7 @@ class ClipperApp {
 
     async loadThumbnailStats() {
         try {
-            const response = await fetch(`${this.apiBase}/thumbnails/stats`);
-            const stats = await response.json();
+            const stats = await this.api.getThumbnailStats();
             this.updateThumbnailStats(stats);
         } catch (error) {
             console.error('Failed to load thumbnail stats:', error);

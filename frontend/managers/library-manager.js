@@ -14,19 +14,17 @@ class LibraryManager {
          * Load available roots from backend and setup root selector
          */
         try {
-            const response = await fetch(`${this.app.apiBase}/api/roots`);
-            const data = await response.json();
-
-            this.availableRoots = data.roots || [];
-            this.currentRoot = data.roots?.find(r => r.default) || data.roots?.[0];
-            this.currentRootLayout = data.current?.layout || 'horizontal';
+            const result = await this.app.api.getRoots();
+            this.availableRoots = result.roots || [];
+            this.currentRoot = result.current.root || result.roots?.[0];
+            this.currentRootLayout = result.current.layout || 'horizontal';
 
             // Sync app state for compatibility
             this.app.availableRoots = this.availableRoots;
             this.app.currentRoot = this.currentRoot;
             this.app.currentRootLayout = this.currentRootLayout;
 
-            console.log(`📁 Roots loaded. Current: ${this.currentRoot?.name} (${data.current?.layout})`);
+            console.log(`📁 Roots loaded. Current: ${this.currentRoot?.name} (${this.currentRootLayout})`);
 
             // Setup root selector UI
             this.setupRootSelector();
@@ -54,7 +52,7 @@ class LibraryManager {
 
         // Populate root selector
         selector.innerHTML = this.availableRoots.map(root =>
-            `<option value="${root.name}" ${root.default ? 'selected' : ''}>${root.name} (${root.layout})</option>`
+            `<option value="${root.name}" ${root.name === this.currentRoot?.name ? 'selected' : ''}>${root.name} (${root.layout})</option>`
         ).join('');
 
         // Add change event listener
@@ -74,24 +72,16 @@ class LibraryManager {
         try {
             console.log(`🔄 Switching to root: ${rootName}`);
 
-            const response = await fetch(`${this.app.apiBase}/api/roots/select?root_name=${encodeURIComponent(rootName)}`, {
-                method: 'POST'
-            });
+            const result = await this.app.api.selectRoot(rootName);
 
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.detail || 'Failed to switch root');
-            }
-
-            const data = await response.json();
             this.currentRoot = this.availableRoots.find(r => r.name === rootName);
-            this.currentRootLayout = data.current.layout;
+            this.currentRootLayout = result.current.layout;
 
             // Sync app state
             this.app.currentRoot = this.currentRoot;
             this.app.currentRootLayout = this.currentRootLayout;
 
-            console.log(`✅ Switched to: ${rootName} (${data.current.layout})`);
+            console.log(`✅ Switched to: ${rootName} (${this.currentRootLayout})`);
 
             // === Clear ALL Frontend State ===
             this.resetAppState();
@@ -105,7 +95,7 @@ class LibraryManager {
 
             await this.app.loadVideos();
             await this.app.loadAllTags();
-            await this.app.loadFolderGroups();  // Reload folder groups for new root
+            await this.app.loadFolderGroups();
 
             console.log('🎬 Videos reloaded from new root with Explorer view');
         } catch (error) {
@@ -154,7 +144,6 @@ class LibraryManager {
 
     applyLayout() {
         // Delegate vertical mode toggle to app if logic exists, or do it here
-        // Using logic from app.js
         if (this.currentRootLayout === 'vertical') {
             this.app.verticalMode = true;
             // Apply vertical layout to video grid
