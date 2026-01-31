@@ -1481,7 +1481,71 @@ class NavigationModule {
             this.app.showStatus('Failed to refresh folder list', 'error');
         }
     }
+
+    createNavigablePath(video) {
+        if (!video.category && !video.subcategory) {
+            const rootBg = this.app.format.getFolderColor('_root', 'background');
+            const rootBorder = this.app.format.getFolderColor('_root', 'border');
+            return `<span class="path-segment root" style="background: ${rootBg}; border-color: ${rootBorder};">Root</span>`;
+        }
+
+        // Different behavior for Collection vs Explorer view
+        if (this.app.currentView === 'list') {
+            // Collection View: Show only the last folder name with full path in tooltip
+            let fullPath = '';
+            let lastFolderName = '';
+            let folderForColor = '';
+
+            if (video.category) {
+                fullPath = video.category;
+                lastFolderName = video.category;
+                folderForColor = video.category;
+            }
+
+            if (video.subcategory) {
+                fullPath += ` › ${video.subcategory.replace(/\//g, ' › ')}`;
+                const subcategoryParts = video.subcategory.split('/');
+                lastFolderName = subcategoryParts[subcategoryParts.length - 1];
+                folderForColor = lastFolderName; // Use last subfolder for color
+            }
+
+            const bgColor = this.app.format.getFolderColor(folderForColor, 'background');
+            const borderColor = this.app.format.getFolderColor(folderForColor, 'border');
+
+            return `<span class="path-segment collection-path" title="${fullPath}" style="background: ${bgColor}; border-color: ${borderColor};">${lastFolderName}</span>`;
+        } else {
+            // Explorer View: Show full navigable breadcrumb (existing behavior)
+            let pathHtml = '';
+
+            // Add category
+            if (video.category) {
+                const catBg = this.app.format.getFolderColor(video.category, 'background');
+                const catBorder = this.app.format.getFolderColor(video.category, 'border');
+                // Updated onclick to use app.nav.navigateToCategory
+                pathHtml += `<span class="path-segment category" style="background: ${catBg}; border-color: ${catBorder};" onclick="event.stopPropagation(); app.nav.navigateToCategory('${video.category}')">${video.category}</span>`;
+            }
+
+            // Add subcategory parts if they exist
+            if (video.subcategory) {
+                const subcategoryParts = video.subcategory.split('/');
+                let currentPath = video.category || '';
+
+                subcategoryParts.forEach((part, index) => {
+                    const subPath = subcategoryParts.slice(0, index + 1).join('/');
+                    const subBg = this.app.format.getFolderColor(part, 'background');
+                    const subBorder = this.app.format.getFolderColor(part, 'border');
+
+                    pathHtml += ` <span class="path-separator">›</span> `;
+                    // Updated onclick to use app.nav.navigateToSubcategory
+                    pathHtml += `<span class="path-segment subcategory" style="background: ${subBg}; border-color: ${subBorder};" onclick="event.stopPropagation(); app.nav.navigateToSubcategory('${video.category}', '${subPath}')">${part}</span>`;
+                });
+            }
+
+            return pathHtml || `<span class="path-segment root" style="background: ${this.app.format.getFolderColor('_root', 'background')}; border-color: ${this.app.format.getFolderColor('_root', 'border')};">Root</span>`;
+        }
+    }
 }
+
 
 // Export as global for use in app.js
 window.NavigationModule = NavigationModule;

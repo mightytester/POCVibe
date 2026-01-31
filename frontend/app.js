@@ -694,28 +694,9 @@ class ClipperApp {
         this.applyFilters();
     }
 
-    updateBreadcrumb(categoryName, subcategoryName = null) {
-        this.breadcrumb = [];
+    updateBreadcrumb(categoryName, subcategoryName = null) { this.nav.updateBreadcrumb(categoryName, subcategoryName) }
 
-        if (categoryName === '_all') {
-            this.breadcrumb.push({ name: 'All Videos', category: '_all' });
-        } else {
-            this.breadcrumb.push({ name: 'All Videos', category: '_all' });
-            if (categoryName !== '_root') {
-                this.breadcrumb.push({ name: categoryName, category: categoryName });
-            } else {
-                this.breadcrumb.push({ name: 'Root', category: '_root' });
-            }
 
-            if (subcategoryName) {
-                this.breadcrumb.push({ name: subcategoryName, category: categoryName, subcategory: subcategoryName });
-            }
-        }
-
-        this.renderBreadcrumb();
-    }
-
-    renderBreadcrumb() { this.nav.renderBreadcrumb() }
 
     createBreadcrumbContainer() { return this.nav.createBreadcrumbContainer() }
 
@@ -1062,7 +1043,7 @@ class ClipperApp {
                         <button class="context-menu-btn" onclick="event.stopPropagation(); event.preventDefault(); app.showVideoContextMenu(event, ${video.id}, '${video.name.replace(/'/g, "\\'")}')">⋯</button>
                     </div>
                     <div class="video-path" title="${folderDisplayName}">
-                        ${this.createNavigablePath(video)}
+                        ${this.nav.createNavigablePath(video)}
                     </div>
                 </div>
             </div>
@@ -1078,100 +1059,14 @@ class ClipperApp {
         return card;
     }
 
-    createNavigablePath(video) {
-        if (!video.category && !video.subcategory) {
-            const rootBg = this.getFolderColor('_root', 'background');
-            const rootBorder = this.getFolderColor('_root', 'border');
-            return `<span class="path-segment root" style="background: ${rootBg}; border-color: ${rootBorder};">Root</span>`;
-        }
 
-        // Different behavior for Collection vs Explorer view
-        if (this.currentView === 'list') {
-            // Collection View: Show only the last folder name with full path in tooltip
-            let fullPath = '';
-            let lastFolderName = '';
-            let folderForColor = '';
-
-            if (video.category) {
-                fullPath = video.category;
-                lastFolderName = video.category;
-                folderForColor = video.category;
-            }
-
-            if (video.subcategory) {
-                fullPath += ` › ${video.subcategory.replace(/\//g, ' › ')}`;
-                const subcategoryParts = video.subcategory.split('/');
-                lastFolderName = subcategoryParts[subcategoryParts.length - 1];
-                folderForColor = lastFolderName; // Use last subfolder for color
-            }
-
-            const bgColor = this.getFolderColor(folderForColor, 'background');
-            const borderColor = this.getFolderColor(folderForColor, 'border');
-
-            return `<span class="path-segment collection-path" title="${fullPath}" style="background: ${bgColor}; border-color: ${borderColor};">${lastFolderName}</span>`;
-        } else {
-            // Explorer View: Show full navigable breadcrumb (existing behavior)
-            let pathHtml = '';
-
-            // Add category
-            if (video.category) {
-                const catBg = this.getFolderColor(video.category, 'background');
-                const catBorder = this.getFolderColor(video.category, 'border');
-                pathHtml += `<span class="path-segment category" style="background: ${catBg}; border-color: ${catBorder};" onclick="event.stopPropagation(); app.navigateToFolder('${video.category}', null)">${video.category}</span>`;
-            }
-
-            // Add subcategory parts if they exist
-            if (video.subcategory) {
-                const subcategoryParts = video.subcategory.split('/');
-                let currentPath = video.category || '';
-
-                subcategoryParts.forEach((part, index) => {
-                    if (currentPath) currentPath += '/';
-                    currentPath += part;
-
-                    const subBg = this.getFolderColor(part, 'background');
-                    const subBorder = this.getFolderColor(part, 'border');
-
-                    pathHtml += ` <span class="path-separator">›</span> `;
-                    pathHtml += `<span class="path-segment subcategory" style="background: ${subBg}; border-color: ${subBorder};" onclick="event.stopPropagation(); app.navigateToFolder('${video.category}', '${subcategoryParts.slice(0, index + 1).join('/')}')">${part}</span>`;
-                });
-            }
-
-            return pathHtml || `<span class="path-segment root" style="background: ${this.getFolderColor('_root', 'background')}; border-color: ${this.getFolderColor('_root', 'border')};">Root</span>`;
-        }
-    }
 
     navigateToFolder(category, subcategory) {
-        console.log(`🧭 Navigating to folder: category="${category}", subcategory="${subcategory}"`);
-
-        // Switch to explorer view and navigate to the specified folder
-        if (this.currentView !== 'explorer') {
-            this.switchView('explorer');
+        if (subcategory) {
+            return this.nav.navigateToSubcategory(category, subcategory);
+        } else {
+            return this.nav.navigateToCategory(category);
         }
-
-        this.currentCategory = category;
-        this.currentSubcategory = subcategory;
-
-        // Update breadcrumb path
-        this.breadcrumb = [];
-        if (category) {
-            this.breadcrumb.push({ name: category, category: category, subcategory: null });
-            if (subcategory) {
-                const subcategoryParts = subcategory.split('/');
-                let currentPath = '';
-                subcategoryParts.forEach(part => {
-                    currentPath = currentPath ? `${currentPath}/${part}` : part;
-                    this.breadcrumb.push({
-                        name: part,
-                        category: category,
-                        subcategory: currentPath
-                    });
-                });
-            }
-        }
-
-        this.renderFolderExplorer();
-        this.renderBreadcrumb();
     }
 
     // ==================== VIDEO PLAYER METHODS (delegated to VideoPlayerModule) ====================
