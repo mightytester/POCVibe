@@ -255,16 +255,11 @@ class ActorManagementModule {
         if (!this.app.currentVideo) return
 
         try {
-            const response = await fetch(`${this.app.apiBase}/videos/${this.app.currentVideo.id}/actors`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ actor_name: actor.name })
-            })
+            // Use unified API client to add actor
+            const result = await this.api.addActorToVideo(this.app.currentVideo.id, actor.name);
 
-            if (response.ok) {
-                const result = await response.json()
+            if (result) {
+                const actorData = result.actor;
 
                 // Add to current video actors if not already there
                 if (!this.currentVideoActors.find(a => a.id === result.actor.id)) {
@@ -311,16 +306,11 @@ class ActorManagementModule {
         if (!actorName || !this.app.currentVideo) return
 
         try {
-            const response = await fetch(`${this.app.apiBase}/videos/${this.app.currentVideo.id}/actors`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ actor_name: actorName })
-            })
+            // Use unified API client to add actor
+            const result = await this.api.addActorToVideo(this.app.currentVideo.id, actorName);
 
-            if (response.ok) {
-                const result = await response.json()
+            if (result) {
+                const actorData = result.actor;
 
                 // Check if actor already exists in current video actors before adding
                 if (!this.currentVideoActors.find(actor => actor.id === result.actor.id)) {
@@ -374,11 +364,10 @@ class ActorManagementModule {
         if (!this.app.currentVideo) return
 
         try {
-            const response = await fetch(`${this.app.apiBase}/videos/${this.app.currentVideo.id}/actors/${actorId}`, {
-                method: 'DELETE'
-            })
+            // Use unified API client to remove actor
+            const result = await this.api.removeActorFromVideo(this.app.currentVideo.id, actorId);
 
-            if (response.ok) {
+            if (result) {
                 // Remove actor from current video actors
                 this.currentVideoActors = this.currentVideoActors.filter(actor => actor.id !== actorId)
                 this.renderCurrentActors()

@@ -490,25 +490,15 @@ class ClipperApp {
         // Update breadcrumb navigation
         this.updateBreadcrumb(categoryName, subcategoryName);
 
-        // Load videos with tags from database with cache busting
+        // Load videos from unified API client
         try {
-            const timestamp = new Date().getTime();
-            let apiUrl;
-            if (subcategoryName) {
-                apiUrl = `${this.apiBase}/videos/${categoryName}/${subcategoryName}?_t=${timestamp}`;
-                console.log(`📂 Loading subcategory "${categoryName}/${subcategoryName}" with cache-buster: ${timestamp}`);
-            } else {
-                apiUrl = `${this.apiBase}/videos/${categoryName}?_t=${timestamp}`;
-                console.log(`📂 Loading category "${categoryName}" with cache-buster: ${timestamp}`);
-            }
-
-            const response = await fetch(apiUrl);
-            const data = await response.json();
+            console.log(`📂 Loading category "${categoryName}"${subcategoryName ? ' subcategory "' + subcategoryName + '"' : ''}`);
+            const data = await this.api.getVideos(categoryName, subcategoryName, true);
             this.allVideos = data.videos || [];
             console.log(`📊 Loaded ${this.allVideos.length} videos from database`);
         } catch (error) {
-            console.warn(`⚠️ Database load failed, falling back to file system`);
-            // Fallback to file system scan
+            console.warn(`⚠️ Database load failed, falling back to file system:`, error);
+            // Fallback to file system scan if available
             this.allVideos = this.categories[categoryName]?.videos || [];
             console.log(`📊 Category "${categoryName}" loaded ${this.allVideos.length} videos from file system`);
         }

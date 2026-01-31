@@ -261,12 +261,11 @@ class TagManagementModule {
         if (!this.app.currentVideo) return
 
         try {
-            const response = await fetch(`${this.app.apiBase}/videos/${this.app.currentVideo.id}/tags?tag_name=${encodeURIComponent(tag.name)}`, {
-                method: 'POST'
-            })
+            // Use unified API client to add tag
+            const result = await this.api.addTagToVideo(this.app.currentVideo.id, tag.name);
 
-            if (response.ok) {
-                const result = await response.json()
+            if (result) {
+                const tagData = result.tag;
 
                 // Add to current video tags
                 if (!this.currentVideoTags.find(t => t.id === result.tag.id)) {
@@ -301,12 +300,11 @@ class TagManagementModule {
         if (!tagName || !this.app.currentVideo) return
 
         try {
-            const response = await fetch(`${this.app.apiBase}/videos/${this.app.currentVideo.id}/tags?tag_name=${encodeURIComponent(tagName)}`, {
-                method: 'POST'
-            })
+            // Use unified API client to add tag
+            const result = await this.api.addTagToVideo(this.app.currentVideo.id, tagName);
 
-            if (response.ok) {
-                const result = await response.json()
+            if (result) {
+                const tagData = result.tag;
 
                 // Add to current video tags
                 if (!this.currentVideoTags.find(tag => tag.id === result.tag.id)) {
@@ -345,11 +343,10 @@ class TagManagementModule {
         if (!this.app.currentVideo) return
 
         try {
-            const response = await fetch(`${this.app.apiBase}/videos/${this.app.currentVideo.id}/tags/${tagId}`, {
-                method: 'DELETE'
-            })
+            // Use unified API client to remove tag
+            const result = await this.api.removeTagFromVideo(this.app.currentVideo.id, tagId);
 
-            if (response.ok) {
+            if (result) {
                 // Remove from current tags
                 this.currentVideoTags = this.currentVideoTags.filter(tag => tag.id !== tagId)
                 this.renderCurrentTags()
@@ -415,10 +412,7 @@ class TagManagementModule {
             const tag = this.app.allTags.find(t => t.id == tagId)
             if (!tag) return
 
-            fetch(`${this.app.apiBase}/videos/${this.app.currentVideo.id}/tags?tag_name=${encodeURIComponent(tag.name)}`, {
-                method: 'POST'
-            })
-                .then(response => response.json())
+            this.api.addTagToVideo(this.app.currentVideo.id, tag.name)
                 .then(result => {
                     this.currentVideoTags.push(result.tag)
 
@@ -581,12 +575,11 @@ class TagManagementModule {
 
     async addQuickTag(videoId, videoName, tagName) {
         try {
-            const response = await fetch(`${this.app.apiBase}/videos/${videoId}/tags?tag_name=${tagName}`, {
-                method: 'POST'
-            })
+            // Use unified API client for quick tag
+            const result = await this.api.addTagToVideo(videoId, tagName);
 
-            if (response.ok) {
-                const result = await response.json()
+            if (result) {
+                const tagData = result.tag;
 
                 // Update currentVideoInPlayer
                 if (this.app.currentVideoInPlayer && this.app.currentVideoInPlayer.id === videoId) {

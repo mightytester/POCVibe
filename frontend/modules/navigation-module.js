@@ -121,17 +121,6 @@ class NavigationModule {
 
             console.log(`🎬 Loading videos: category="${category}", subcategory="${subcategory || '(none)'}"`);
 
-            // Build the API path
-            let apiPath = `${this.app.apiBase}/videos/${category}`;
-            if (subcategory) {
-                apiPath += `/${subcategory}`;
-            }
-
-            // Add cache busting if requested
-            if (skipCache) {
-                apiPath += `?t=${Date.now()}&bust=${Math.random()}`;
-            }
-
             const data = await this.app.api.getVideos(category, subcategory, skipCache);
             this.app.videos = data.videos || [];
 

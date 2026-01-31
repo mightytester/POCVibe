@@ -104,6 +104,13 @@ class ClipperAPIClient {
         });
     }
 
+    async renameVideo(videoId, data) {
+        return this.request(`/api/videos/${videoId}/rename`, {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+    }
+
     async hashRename(videoId) {
         return this.request(`/api/videos/${videoId}/hash-rename`, {
             method: 'POST'
@@ -215,6 +222,30 @@ class ClipperAPIClient {
         return this.request(`/api/actors/videos/${videoId}/actors/${actorId}`, {
             method: 'DELETE'
         });
+    }
+
+    async search(params = {}) {
+        const queryParams = new URLSearchParams();
+        if (params.q) queryParams.append('q', params.q);
+        if (params.tags) queryParams.append('tags', params.tags);
+        if (params.actors) queryParams.append('actors', params.actors);
+        if (params.category) queryParams.append('category', params.category);
+        if (params.subcategory) queryParams.append('subcategory', params.subcategory);
+        if (params.limit) queryParams.append('limit', params.limit);
+        if (params.offset) queryParams.append('offset', params.offset);
+
+        // Add cache buster
+        queryParams.append('_t', Date.now());
+
+        return this.request(`/api/search?${queryParams.toString()}`);
+    }
+
+    async searchActors(query, limit = 10) {
+        return this.request(`/api/actors/search?q=${encodeURIComponent(query)}&limit=${limit}`);
+    }
+
+    async searchTags(query, limit = 10) {
+        return this.request(`/api/tags/search?q=${encodeURIComponent(query)}&limit=${limit}`);
     }
 
     // ============ Thumbnail API ============
