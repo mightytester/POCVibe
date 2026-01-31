@@ -27,6 +27,7 @@ from routers import (
     roots_router,
     scan_router,
     videos_router,
+    streaming_router,
     tags_router,
     actors_router,
     search_router,
@@ -148,6 +149,7 @@ async def favicon():
 app.include_router(health_router)
 app.include_router(roots_router)
 app.include_router(scan_router)
+app.include_router(streaming_router)  # Mount streaming before videos to avoid prefix conflict
 app.include_router(videos_router)
 app.include_router(folder_videos_router)
 app.include_router(tags_router)

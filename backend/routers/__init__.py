@@ -4,6 +4,7 @@ from .health import router as health_router
 from .roots import router as roots_router
 from .scan import router as scan_router
 from .videos import router as videos_router
+from .streaming import router as streaming_router
 from .tags import router as tags_router
 from .actors import router as actors_router
 from .search import router as search_router
@@ -22,6 +23,7 @@ __all__ = [
     "roots_router",
     "scan_router",
     "videos_router",
+    "streaming_router",
     "tags_router",
     "actors_router",
     "search_router",
